@@ -89,6 +89,23 @@ export default function Home() {
     setIsAllMuted(!isAllMuted);
   };
 
+  const handleRandomAssign = () => {
+    let selected = [];
+    if (videos.length >= 6) {
+      // Shuffle and pick 6 unique
+      const shuffled = [...videos].sort(() => 0.5 - Math.random());
+      selected = shuffled.slice(0, 6);
+    } else if (videos.length > 0) {
+      // Less than 6, allow repeats
+      for (let i = 0; i < 6; i++) {
+        selected.push(videos[Math.floor(Math.random() * videos.length)]);
+      }
+    } else {
+      selected = Array(6).fill(null);
+    }
+    setAssignments(selected);
+  };
+
   if (isFullscreen) {
     return (
       <FullscreenView
@@ -145,6 +162,7 @@ export default function Home() {
               isAllMuted={isAllMuted}
               onPlayPauseAll={handlePlayPauseAll}
               onMuteUnmuteAll={handleMuteUnmuteAll}
+              onRandomAssign={handleRandomAssign}
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
