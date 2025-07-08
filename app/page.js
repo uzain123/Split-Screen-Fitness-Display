@@ -19,12 +19,12 @@ export default function Home() {
 
   useEffect(() => {
     const defaultVideos = [
-      '/videos/sample1.mp4',
-      '/videos/sample2.mp4',
-      '/videos/sample3.mp4',
-      '/videos/sample4.mp4',
-      '/videos/sample5.mp4',
-      '/videos/sample6.mp4'
+      // '/videos/sample1.mp4',
+      // '/videos/sample2.mp4',
+      // '/videos/sample3.mp4',
+      // '/videos/sample4.mp4',
+      // '/videos/sample5.mp4',
+      // '/videos/sample6.mp4'
     ];
     setVideos(defaultVideos);
   }, []);
