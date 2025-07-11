@@ -16,7 +16,7 @@ const GlobalControls = ({
         variant="secondary"
         size={isFullscreen ? "lg" : "default"}
         onClick={onRandomAssign}
-        className={`${isFullscreen ? 'h-12 px-6' : ''} flex items-center gap-2`}
+        className={`${isFullscreen ? 'h-12 px-6' : ''} flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded`}
       >
         <Shuffle className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />
         Random Assign
@@ -25,7 +25,7 @@ const GlobalControls = ({
         variant="secondary"
         size={isFullscreen ? "lg" : "default"}
         onClick={onPlayPauseAll}
-        className={`${isFullscreen ? 'h-12 px-6' : ''} flex items-center gap-2`}
+        className={`${isFullscreen ? 'h-12 px-6' : ''} flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded`}
       >
         {isAllPlaying ? (
           <Pause className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />
@@ -38,7 +38,7 @@ const GlobalControls = ({
         variant="secondary"
         size={isFullscreen ? "lg" : "default"}
         onClick={onMuteUnmuteAll}
-        className={`${isFullscreen ? 'h-12 px-6' : ''} flex items-center gap-2`}
+        className={`${isFullscreen ? 'h-12 px-6' : ''} flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded`}
       >
         {isAllMuted ? (
           <VolumeX className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />

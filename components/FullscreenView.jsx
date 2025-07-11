@@ -21,12 +21,12 @@ const FullscreenView = ({ assignments, onClose }) => {
     const handleMouseMove = () => {
       setShowControls(true);
       document.body.style.cursor = 'default';
-      
+
       // Clear existing timeout
       if (cursorTimeoutRef.current) {
         clearTimeout(cursorTimeoutRef.current);
       }
-      
+
       // Set new timeout to hide controls and cursor
       cursorTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
@@ -80,11 +80,10 @@ const FullscreenView = ({ assignments, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 overflow-hidden">
+    <div className="fixed inset-0 bg-black z-50 overflow-hidden flex flex-col">
       {/* Exit button and global controls */}
-      <div className={`absolute top-4 right-4 z-10 transition-opacity duration-300 flex items-center gap-4 ${
-        showControls ? 'opacity-100' : 'opacity-0'
-      }`}>
+      <div className={`absolute top-4 right-4 z-10 transition-opacity duration-300 flex items-center gap-4 ${showControls ? 'opacity-100' : 'opacity-0'
+        }`}>
         <GlobalControls
           isAllPlaying={isAllPlaying}
           isAllMuted={isAllMuted}
@@ -103,11 +102,18 @@ const FullscreenView = ({ assignments, onClose }) => {
       </div>
 
       {/* Video grid optimized for large screens */}
-      <div className="h-full w-full p-4 grid grid-cols-3 grid-rows-2 gap-4">
+      <div className="flex-1 p-4 grid gap-4"
+        style={{
+          gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(assignments.length))}, 1fr)`,
+          gridTemplateRows: `repeat(${Math.ceil(assignments.length / Math.ceil(Math.sqrt(assignments.length)))}, 1fr)`,
+          display: 'grid',
+          height: '100%',
+          minHeight: 0,
+        }}>
         {assignments.map((assignment, index) => (
-          <div key={index} className="w-full h-full">
+          <div key={index} className="w-full h-full overflow-hidden">
             <VideoPlayer
-              ref={el => videoRefs.current[index] = el}
+              ref={(el) => (videoRefs.current[index] = el)}
               src={assignment}
               index={index}
               isFullscreen={true}
@@ -116,10 +122,10 @@ const FullscreenView = ({ assignments, onClose }) => {
         ))}
       </div>
 
+
       {/* Instructions overlay */}
-      <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center transition-opacity duration-300 ${
-        showControls ? 'opacity-100' : 'opacity-0'
-      }`}>
+      <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'
+        }`}>
         <p className="text-lg mb-2">TV Mode Active</p>
         <p className="text-sm text-gray-300">Press ESC to exit • Move mouse to show controls</p>
       </div>

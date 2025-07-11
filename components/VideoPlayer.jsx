@@ -70,17 +70,16 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false }, ref) => {
   };
 
   return (
-    <div 
-      className={`relative bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-700 transition-all ${
-        isFullscreen ? 'h-full' : 'aspect-video'
-      }`}
+    <div
+      className={`relative bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-700 transition-all ${isFullscreen ? 'h-full' : 'aspect-video'
+        }`}
       onMouseMove={handleMouseMove}
     >
       {src ? (
         <>
           <video
             ref={videoRef}
-            src={src}
+            src={src.url}
             className="w-full h-full object-cover"
             loop
             muted={isMuted}
@@ -89,9 +88,15 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false }, ref) => {
             preload="metadata"
             playsInline
           />
-          <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
-            showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'
-          }`}>
+
+          {src.name && (
+            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded shadow-sm">
+              {src.name}
+            </div>
+          )}
+
+          <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'
+            }`}>
             <div className="flex gap-2">
               <Button
                 variant="secondary"

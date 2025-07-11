@@ -8,15 +8,15 @@ const VideoUpload = ({ videos, onVideosChange }) => {
 
   const handleFiles = useCallback((files) => {
     const newVideos = [];
-    
+
     Array.from(files).forEach(file => {
       if (file.type.startsWith('video/')) {
         const url = URL.createObjectURL(file);
-        newVideos.push(url);
+        newVideos.push({ url, name: `Uploaded Video ${videos.length + newVideos.length + 1}` });
         console.log(`Added video: ${file.name}`);
       }
     });
-    
+
     if (newVideos.length > 0) {
       onVideosChange([...videos, ...newVideos]);
     }
@@ -26,7 +26,7 @@ const VideoUpload = ({ videos, onVideosChange }) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files) {
       handleFiles(e.dataTransfer.files);
     }
@@ -65,11 +65,10 @@ const VideoUpload = ({ videos, onVideosChange }) => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive 
-              ? 'border-blue-500 bg-blue-500/10' 
-              : 'border-gray-600 hover:border-gray-500'
-          }`}
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive
+            ? 'border-blue-500 bg-blue-500/10'
+            : 'border-gray-600 hover:border-gray-500'
+            }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -106,11 +105,19 @@ const VideoUpload = ({ videos, onVideosChange }) => {
                   className="flex items-center justify-between bg-gray-700 p-2 rounded"
                 >
                   <span className="text-sm text-gray-300 truncate flex-1">
-                    {video.startsWith('blob:') 
-                      ? `Uploaded Video ${index + 1}` 
-                      : video.split('/').pop()?.replace(/\.[^/.]+$/, '') || `Video ${index + 1}`
-                    }
+                    {video.name}
                   </span>
+                  <input
+                    type="text"
+                    value={video.name}
+                    onChange={(e) => {
+                      const updatedVideos = [...videos];
+                      updatedVideos[index].name = e.target.value;
+                      onVideosChange(updatedVideos);
+                    }}
+                    placeholder="Enter video name"
+                    className="ml-4 bg-gray-800 border border-gray-600 text-gray-200 text-xs px-2 py-1 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -121,6 +128,7 @@ const VideoUpload = ({ videos, onVideosChange }) => {
                   </Button>
                 </div>
               ))}
+
             </div>
           </div>
         )}

@@ -184,6 +184,7 @@ export default function Home() {
               videos={videos}
               assignments={assignments}
               onAssignVideo={handleAssignVideo}
+              setAssignments={setAssignments}
               onClearAll={handleClearAll}
             />
 
