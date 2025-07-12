@@ -4,12 +4,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from './ui/button';
 import { Monitor, RotateCcw } from 'lucide-react';
 
-const ControlPanel = ({ 
-  videos, 
-  assignments, 
-  onAssignVideo, 
-  onClearAll 
+const ControlPanel = ({
+  videos,
+  assignments,
+  onAssignVideo,
+  setAssignments,
+  onClearAll
 }) => {
+  const handleAddScreen = () => {
+    if (assignments.length < 6) {
+      setAssignments([...assignments, { url: '', name: '' }]);
+    }
+  };
+
+  const handleRemoveScreen = () => {
+    if (assignments.length > 1) {
+      const updated = [...assignments];
+      updated.pop();
+      setAssignments(updated);
+    }
+  };
   return (
     <Card className="bg-gray-800 border-gray-700">
       <CardHeader className="pb-4">
@@ -18,6 +32,25 @@ const ControlPanel = ({
           Video Assignment Control
         </CardTitle>
       </CardHeader>
+      <div className="flex gap-4 pb-4">
+        <Button
+          onClick={handleAddScreen}
+          className="bg-blue-500 text-white hover:bg-blue-400 transition-colors"
+        >
+          + Add Screen
+        </Button>
+        <Button
+          onClick={handleRemoveScreen}
+          disabled={assignments.length === 1}
+          className={`text-white transition-colors ${assignments.length === 1
+              ? 'bg-gray-600 cursor-not-allowed'
+              : 'bg-red-600 hover:bg-red-700'
+            }`}
+        >
+          − Remove Screen
+        </Button>
+      </div>
+
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {assignments.map((assignment, index) => (
@@ -27,7 +60,7 @@ const ControlPanel = ({
               </label>
               <Select
                 value={assignment || "none"}
-                onValueChange={(value) => 
+                onValueChange={(value) =>
                   onAssignVideo(index, value === "none" ? null : value)
                 }
               >
@@ -39,12 +72,13 @@ const ControlPanel = ({
                     No video
                   </SelectItem>
                   {videos.map((video, videoIndex) => (
-                    <SelectItem 
-                      key={videoIndex} 
+                    <SelectItem
+                      key={videoIndex}
                       value={video}
                       className="text-white"
                     >
-                      {video.split('/').pop()?.replace(/\.[^/.]+$/, '') || `Video ${videoIndex + 1}`}
+                      {video.name || video.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `Video ${videoIndex + 1}`}
+
                     </SelectItem>
                   ))}
                 </SelectContent>
