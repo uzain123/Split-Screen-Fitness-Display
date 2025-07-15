@@ -75,11 +75,13 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false }, ref) => {
         }`}
       onMouseMove={handleMouseMove}
     >
-      {src ? (
+      {(src && (typeof src === 'string' ? src.trim() : src?.url)) ? (
         <>
           <video
             ref={videoRef}
-            src={src.url}
+            src={typeof src === 'string' ? src : src?.url}
+
+
             className="w-full h-full object-cover"
             loop
             muted={isMuted}

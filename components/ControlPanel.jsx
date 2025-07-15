@@ -11,9 +11,10 @@ const ControlPanel = ({
   setAssignments,
   onClearAll
 }) => {
+  // ✅ Use `null` (not object) for empty screen
   const handleAddScreen = () => {
     if (assignments.length < 6) {
-      setAssignments([...assignments, { url: '', name: '' }]);
+      setAssignments([...assignments, null]);
     }
   };
 
@@ -24,6 +25,7 @@ const ControlPanel = ({
       setAssignments(updated);
     }
   };
+
   return (
     <Card className="bg-gray-800 border-gray-700">
       <CardHeader className="pb-4">
@@ -42,10 +44,11 @@ const ControlPanel = ({
         <Button
           onClick={handleRemoveScreen}
           disabled={assignments.length === 1}
-          className={`text-white transition-colors ${assignments.length === 1
+          className={`text-white transition-colors ${
+            assignments.length === 1
               ? 'bg-gray-600 cursor-not-allowed'
               : 'bg-red-600 hover:bg-red-700'
-            }`}
+          }`}
         >
           − Remove Screen
         </Button>
@@ -59,9 +62,9 @@ const ControlPanel = ({
                 Player {index + 1}
               </label>
               <Select
-                value={assignment || "none"}
+                value={assignment || 'none'}
                 onValueChange={(value) =>
-                  onAssignVideo(index, value === "none" ? null : value)
+                  onAssignVideo(index, value === 'none' ? null : value)
                 }
               >
                 <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
@@ -77,8 +80,7 @@ const ControlPanel = ({
                       value={video}
                       className="text-white"
                     >
-                      {video.name || video.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || `Video ${videoIndex + 1}`}
-
+                      {video.split('/').pop()}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -86,6 +88,7 @@ const ControlPanel = ({
             </div>
           ))}
         </div>
+
         <div className="pt-4 border-t border-gray-700">
           <Button
             variant="outline"
