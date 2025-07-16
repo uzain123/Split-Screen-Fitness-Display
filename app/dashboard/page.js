@@ -270,24 +270,50 @@ export default function Home() {
         <div className="mt-8 p-6 bg-gray-800 rounded-lg border border-gray-700">
           <h3 className="text-lg font-semibold mb-3 text-blue-400">Getting Started</h3>
           <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
+
             <div>
-              <h4 className="font-medium mb-2">📁 Default Videos:</h4>
-              <p>Place video files in the <code className="bg-gray-700 px-1 rounded">/public/videos/</code> folder. They'll automatically appear in your video library.</p>
+              <h4 className="font-medium mb-2">📁 Video Library:</h4>
+              <p>Simply add video files to the <code className="bg-gray-700 px-1 rounded">/public/videos/</code> folder. All valid `.mp4` files will automatically appear in your dashboard’s library—no upload needed.</p>
             </div>
+
             <div>
-              <h4 className="font-medium mb-2">🎮 Controls:</h4>
-              <p>Use the control panel to assign videos to each player. Click "TV Mode" for fullscreen casting to your large display.</p>
+              <h4 className="font-medium mb-2">➕ Dynamic Displays:</h4>
+              <p>Easily add or remove display screens with a single click. Each screen will appear in your video grid and can be configured individually.</p>
             </div>
+
             <div>
-              <h4 className="font-medium mb-2">📺 TV Optimization:</h4>
-              <p>The interface is optimized for large screens with high contrast and large controls for easy viewing from a distance.</p>
+              <h4 className="font-medium mb-2">🎮 Per-Screen Control:</h4>
+              <p>Assign videos to specific screens from the library. You can also clear all assignments or reassign them randomly using the built-in tools.</p>
             </div>
+
             <div>
-              <h4 className="font-medium mb-2">⚡ High Performance:</h4>
-              <p>Built for smooth playback of multiple high-resolution videos simultaneously.</p>
+              <h4 className="font-medium mb-2">🎛️ Global Controls:</h4>
+              <p>Use the top control bar to <strong>Play/Pause</strong> or <strong>Mute/Unmute</strong> all videos at once. These controls affect all active players in real time.</p>
             </div>
+
+            <div>
+              <h4 className="font-medium mb-2">📺 Fullscreen Display (TV Mode):</h4>
+              <p>Launch any screen in fullscreen mode using <strong>“TV Mode”</strong>. This is optimized for public displays, gyms, and projection walls.</p>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">⚙️ Smart Randomizer:</h4>
+              <p>Click <strong>“Random Assign”</strong> to instantly populate all displays with random videos from your library. Ideal for quick demos or background loops.</p>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">⚠️ Config Saving (Local Only):</h4>
+              <p>Video assignments are saved in a <code className="bg-gray-700 px-1 rounded">screenConfigs.json</code> file. This only works during local development. In deployments like Vercel, assignments reset on page refresh.</p>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">⚡ Performance:</h4>
+              <p>Designed for smooth, simultaneous playback of multiple HD videos with hardware acceleration. Works out of the box with CDN-loaded content.</p>
+            </div>
+
           </div>
         </div>
+
       </div>
     </div>
   );
