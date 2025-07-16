@@ -22,6 +22,7 @@ export default function Home() {
   const [isAllPlaying, setIsAllPlaying] = useState(false);
   const [isAllMuted, setIsAllMuted] = useState(false);
   const videoRefs = useRef([]);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +37,16 @@ export default function Home() {
         const videoData = await videosRes.json();
 
         setAssignments(configData || Array(6).fill(null));
-        setVideos(videoData || []);
+        setVideos((videoData || []).map(v => {
+          const url = typeof v === 'string' ? v : v?.url;
+          if (!url) return null;
+          return {
+            url,
+            name: url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
+          };
+        }).filter(Boolean));
+
+
 
         // Check for ?fullscreen=true
         const urlParams = new URLSearchParams(window.location.search);
@@ -84,7 +94,7 @@ export default function Home() {
   };
 
   const handleClearAll = () => {
-    setAssignments(Array(6).fill(null));
+    setAssignments(Array(assignments.length).fill(null));
   };
 
   const enterFullscreen = () => {
@@ -142,10 +152,10 @@ export default function Home() {
     if (videos.length >= 6) {
       // Shuffle and pick 6 unique
       const shuffled = [...videos].sort(() => 0.5 - Math.random());
-      selected = shuffled.slice(0, 6);
+      selected = shuffled.slice(0, assignments.length);
     } else if (videos.length > 0) {
       // Less than 6, allow repeats
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < assignments.length; i++) {
         selected.push(videos[Math.floor(Math.random() * videos.length)]);
       }
     } else {
@@ -221,7 +231,10 @@ export default function Home() {
               onPlayPauseAll={handlePlayPauseAll}
               onMuteUnmuteAll={handleMuteUnmuteAll}
               onRandomAssign={handleRandomAssign}
+              isFullscreen={isFullscreen}
+              assignments={assignments}
             />
+
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {assignments.map((assignment, index) => (
