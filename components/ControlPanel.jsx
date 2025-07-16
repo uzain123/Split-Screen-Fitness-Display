@@ -11,7 +11,6 @@ const ControlPanel = ({
   setAssignments,
   onClearAll
 }) => {
-  // ✅ Use `null` (not object) for empty screen
   const handleAddScreen = () => {
     if (assignments.length < 6) {
       setAssignments([...assignments, null]);
@@ -27,75 +26,86 @@ const ControlPanel = ({
   };
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-white flex items-center gap-2">
-          <Monitor className="h-5 w-5" />
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Monitor className="w-5 h-5" />
           Video Assignment Control
         </CardTitle>
       </CardHeader>
-      <div className="flex gap-4 pb-4">
-        <Button
-          onClick={handleAddScreen}
-          className="bg-blue-500 text-white hover:bg-blue-400 transition-colors"
-        >
-          + Add Screen
-        </Button>
-        <Button
-          onClick={handleRemoveScreen}
-          disabled={assignments.length === 1}
-          className={`text-white transition-colors ${
-            assignments.length === 1
-              ? 'bg-gray-600 cursor-not-allowed'
-              : 'bg-red-600 hover:bg-red-700'
-          }`}
-        >
-          − Remove Screen
-        </Button>
-      </div>
 
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex gap-2 justify-center">
+          <Button
+            onClick={handleAddScreen}
+            disabled={assignments.length >= 6}
+            variant="outline"
+            size="sm"
+          >
+            + Add Display
+          </Button>
+
+          <Button
+            onClick={handleRemoveScreen}
+            disabled={assignments.length <= 1}
+            variant="outline"
+            size="sm"
+          >
+            − Remove Display
+          </Button>
+        </div>
+
+        <div className="space-y-3">
           {assignments.map((assignment, index) => (
-            <div key={index} className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">
-                Player {index + 1}
-              </label>
-              <Select
-                value={assignment || 'none'}
-                onValueChange={(value) =>
-                  onAssignVideo(index, value === 'none' ? null : value)
-                }
-              >
-                <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                  <SelectValue placeholder="Select video" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-700 border-gray-600">
-                  <SelectItem value="none" className="text-gray-300">
-                    No video
-                  </SelectItem>
-                  {videos.map((video, videoIndex) => (
-                    <SelectItem
-                      key={videoIndex}
-                      value={video}
-                      className="text-white"
-                    >
-                      {video.split('/').pop()}
+            <div key={index} className="flex items-center gap-3">
+              <div className="flex items-center gap-2 min-w-0 w-24">
+                <Monitor className="w-4 h-4 text-gray-600" />
+                <span className="font-medium text-sm">
+                  Player {index + 1}
+                </span>
+              </div>
+
+              <div className="flex-1">
+                <Select
+                  value={assignment || 'none'}
+                  onValueChange={(value) =>
+                    onAssignVideo(index, value === 'none' ? null : value)
+                  }
+                >
+                  <SelectTrigger className="bg-blue border-gray-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectItem value="none" className="text-gray-300 hover:bg-slate-700 focus:bg-slate-700">
+                      No video
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    {videos.map((video, videoIndex) => (
+                      <SelectItem
+                        key={videoIndex}
+                        value={video}
+                        className="text-gray-100 hover:bg-slate-700 focus:bg-slate-700"
+                      >
+                        <p className="text-xs text-right text-gray-400">
+                          {video?.name || (typeof video === 'string' ? video.split('/').pop() : video?.url?.split('/').pop())}
+                        </p>
+
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="pt-4 border-t border-gray-700">
+        <div className="flex justify-center pt-2">
           <Button
-            variant="outline"
             onClick={onClearAll}
-            className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
           >
-            <RotateCcw className="h-4 w-4 mr-2" />
+            <RotateCcw className="w-4 h-4" />
             Clear All Assignments
           </Button>
         </div>

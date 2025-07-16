@@ -8,8 +8,21 @@ const FullscreenView = ({ assignments, onClose }) => {
   const [showControls, setShowControls] = useState(true);
   const [isAllPlaying, setIsAllPlaying] = useState(false);
   const [isAllMuted, setIsAllMuted] = useState(false);
+  const [videosReady, setVideosReady] = useState(Array(assignments.length).fill(false));
   const videoRefs = useRef([]);
   const cursorTimeoutRef = useRef();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const allVideosReady = assignments.every((video, i) => !video || videosReady[i]);
+
+
+  const handleVideoReady = (index) => {
+    setVideosReady((prev) => {
+      const updated = [...prev];
+      updated[index] = true;
+      return updated;
+    });
+  };
 
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -22,12 +35,10 @@ const FullscreenView = ({ assignments, onClose }) => {
       setShowControls(true);
       document.body.style.cursor = 'default';
 
-      // Clear existing timeout
       if (cursorTimeoutRef.current) {
         clearTimeout(cursorTimeoutRef.current);
       }
 
-      // Set new timeout to hide controls and cursor
       cursorTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
         document.body.style.cursor = 'none';
@@ -37,7 +48,6 @@ const FullscreenView = ({ assignments, onClose }) => {
     document.addEventListener('keydown', handleKeyPress);
     document.addEventListener('mousemove', handleMouseMove);
 
-    // Initial cursor timeout
     cursorTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
       document.body.style.cursor = 'none';
@@ -54,7 +64,7 @@ const FullscreenView = ({ assignments, onClose }) => {
   }, [onClose]);
 
   const handlePlayPauseAll = () => {
-    videoRefs.current.forEach(ref => {
+    videoRefs.current.forEach((ref) => {
       if (ref) {
         if (isAllPlaying) {
           ref.pause();
@@ -67,7 +77,7 @@ const FullscreenView = ({ assignments, onClose }) => {
   };
 
   const handleMuteUnmuteAll = () => {
-    videoRefs.current.forEach(ref => {
+    videoRefs.current.forEach((ref) => {
       if (ref) {
         if (isAllMuted) {
           ref.unmute();
@@ -81,16 +91,25 @@ const FullscreenView = ({ assignments, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden flex flex-col">
+      {/* Loading Overlay */}
+      {!allVideosReady && (
+        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
+          <div className="text-white text-lg animate-pulse mb-4">⚙️ Loading videos...</div>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
       {/* Exit button and global controls */}
-      <div className={`absolute top-4 right-4 z-10 transition-opacity duration-300 flex items-center gap-4 ${showControls ? 'opacity-100' : 'opacity-0'
-        }`}>
+      <div className={`absolute top-4 right-4 z-10 transition-opacity duration-300 flex items-center gap-4 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <GlobalControls
           isAllPlaying={isAllPlaying}
           isAllMuted={isAllMuted}
           onPlayPauseAll={handlePlayPauseAll}
           onMuteUnmuteAll={handleMuteUnmuteAll}
           isFullscreen={true}
+          assignments={assignments}
         />
+
         <Button
           variant="secondary"
           size="lg"
@@ -101,7 +120,7 @@ const FullscreenView = ({ assignments, onClose }) => {
         </Button>
       </div>
 
-      {/* Video grid optimized for large screens */}
+      {/* Video grid */}
       <div className="flex-1 p-4 grid gap-4"
         style={{
           gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(assignments.length))}, 1fr)`,
@@ -117,15 +136,14 @@ const FullscreenView = ({ assignments, onClose }) => {
               src={assignment}
               index={index}
               isFullscreen={true}
+              onReadyToPlay={() => handleVideoReady(index)}
             />
           </div>
         ))}
       </div>
 
-
       {/* Instructions overlay */}
-      <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'
-        }`}>
+      <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <p className="text-lg mb-2">TV Mode Active</p>
         <p className="text-sm text-gray-300">Press ESC to exit • Move mouse to show controls</p>
       </div>

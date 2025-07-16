@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } f
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { Button } from './ui/button';
 
-const VideoPlayer = forwardRef(({ src, index, isFullscreen = false }, ref) => {
+const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => {} }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -69,26 +69,31 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false }, ref) => {
     }
   };
 
+  const handleCanPlayThrough = () => {
+    // Notify parent that video is fully ready
+    onReadyToPlay(index);
+  };
+
+  const validSrc = src && (typeof src === 'string' ? src.trim() : src?.url);
+
   return (
     <div
-      className={`relative bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-700 transition-all ${isFullscreen ? 'h-full' : 'aspect-video'
-        }`}
+      className={`relative bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-700 transition-all ${isFullscreen ? 'h-full' : 'aspect-video'}`}
       onMouseMove={handleMouseMove}
     >
-      {(src && (typeof src === 'string' ? src.trim() : src?.url)) ? (
+      {validSrc ? (
         <>
           <video
             ref={videoRef}
             src={typeof src === 'string' ? src : src?.url}
-
-
             className="w-full h-full object-cover"
             loop
             muted={isMuted}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
-            preload="metadata"
+            preload="auto"
             playsInline
+            onCanPlayThrough={handleCanPlayThrough}
           />
 
           {src.name && (
@@ -97,8 +102,7 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false }, ref) => {
             </div>
           )}
 
-          <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'
-            }`}>
+          <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'}`}>
             <div className="flex gap-2">
               <Button
                 variant="secondary"
