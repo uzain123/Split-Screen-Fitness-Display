@@ -1,12 +1,62 @@
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Clock, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 
-const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => {} }, ref) => {
+const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => { }, timerDuration = 30 }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(timerDuration); // seconds
+  const [expired, setExpired] = useState(false);
+  const [delaying, setDelaying] = useState(false); // for 3s delay indicator
+  const [delayProgress, setDelayProgress] = useState(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isPlaying || delaying) return;
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          setExpired(true);
+          setDelaying(true);
+          videoRef.current?.pause(); // stop video
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [isPlaying, delaying]);
+
+  useEffect(() => {
+    if (!delaying) return;
+
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += 100 / 30; // 30 frames for 3 seconds
+      setDelayProgress(Math.min(progress, 100));
+    }, 100);
+
+    const delayTimeout = setTimeout(() => {
+      setExpired(false);
+      setDelaying(false);
+      setDelayProgress(0);
+      setTimeLeft(timerDuration);
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play();
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(delayTimeout);
+      clearInterval(progressInterval);
+    };
+  }, [delaying, timerDuration]);
 
   useImperativeHandle(ref, () => ({
     play: () => {
@@ -20,6 +70,10 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
         videoRef.current.pause();
         setIsPlaying(false);
       }
+    },
+    startTimer: (seconds) => {
+      setTimeLeft(seconds);
+      setExpired(false);
     },
     mute: () => {
       if (videoRef.current && src) {
@@ -76,9 +130,21 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
 
   const validSrc = src && (typeof src === 'string' ? src.trim() : src?.url);
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTimerColor = () => {
+    if (expired) return 'from-red-500 to-red-600';
+    if (timeLeft <= 10) return 'from-orange-500 to-orange-600';
+    return 'from-green-500 to-green-600';
+  };
+
   return (
     <div
-      className={`relative bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-700 transition-all ${isFullscreen ? 'h-full' : 'aspect-video'}`}
+      className={`relative bg-gray-900 rounded-xl overflow-hidden border border-gray-700 transition-all shadow-lg ${isFullscreen ? 'h-full' : 'aspect-video'}`}
       onMouseMove={handleMouseMove}
     >
       {validSrc ? (
@@ -96,47 +162,89 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
             onCanPlayThrough={handleCanPlayThrough}
           />
 
+          {/* Video Name Badge */}
           {src.name && (
-            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded shadow-sm">
-              {src.name}
+            <div className="absolute bottom-4 right-4 bg-gradient-to-r from-gray-900/90 to-gray-800/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg border border-gray-600/50">
+              <div className="text-sm font-medium">{src.name}</div>
             </div>
           )}
 
-          <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="flex gap-2">
+          {/* Enhanced Timer Display */}
+          <div className="absolute top-4 left-4 z-10">
+            <div className={`bg-gradient-to-r ${getTimerColor()} p-0.5 rounded-xl shadow-lg`}>
+              <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-white" />
+                <span className="text-white font-mono text-sm font-semibold">
+                  {expired ? 'EXPIRED' : formatTime(timeLeft)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+
+          {/* Enhanced Delay Overlay */}
+          {delaying && (
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 flex items-center justify-center">
+              <div className="text-center">
+                <div className="relative mb-6">
+                  <div className="w-20 h-20 border-4 border-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <RotateCcw className="h-8 w-8 text-white animate-spin" />
+                  </div>
+                  <div className="w-32 h-2 bg-gray-700 rounded-full mx-auto overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-100"
+                      style={{ width: `${delayProgress}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="text-white text-xl font-semibold mb-2">Restarting Video</div>
+                <div className="text-gray-300 text-sm">Please wait...</div>
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced Controls */}
+          <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="flex gap-3">
               <Button
                 variant="secondary"
                 size={isFullscreen ? "lg" : "sm"}
                 onClick={togglePlay}
-                className={`${isFullscreen ? 'h-12 w-12' : 'h-8 w-8'} p-0 bg-black/50 hover:bg-black/70`}
+                className={`${isFullscreen ? 'h-14 w-14' : 'h-10 w-10'} p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200 hover:scale-105`}
               >
                 {isPlaying ? (
-                  <Pause className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />
+                  <Pause className={`${isFullscreen ? 'h-7 w-7' : 'h-5 w-5'} text-white`} />
                 ) : (
-                  <Play className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />
+                  <Play className={`${isFullscreen ? 'h-7 w-7' : 'h-5 w-5'} text-white`} />
                 )}
               </Button>
               <Button
                 variant="secondary"
                 size={isFullscreen ? "lg" : "sm"}
                 onClick={toggleMute}
-                className={`${isFullscreen ? 'h-12 w-12' : 'h-8 w-8'} p-0 bg-black/50 hover:bg-black/70`}
+                className={`${isFullscreen ? 'h-14 w-14' : 'h-10 w-10'} p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200 hover:scale-105`}
               >
                 {isMuted ? (
-                  <VolumeX className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />
+                  <VolumeX className={`${isFullscreen ? 'h-7 w-7' : 'h-5 w-5'} text-white`} />
                 ) : (
-                  <Volume2 className={isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} />
+                  <Volume2 className={`${isFullscreen ? 'h-7 w-7' : 'h-5 w-5'} text-white`} />
                 )}
               </Button>
             </div>
           </div>
         </>
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-800">
-          <div className="text-center">
-            <div className={`${isFullscreen ? 'text-4xl mb-4' : 'text-2xl mb-2'}`}>📺</div>
-            <p className={isFullscreen ? 'text-xl' : 'text-sm'}>Player {index + 1}</p>
-            <p className={`${isFullscreen ? 'text-lg' : 'text-xs'} text-gray-500`}>No video assigned</p>
+        <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gradient-to-br from-gray-800 to-gray-900">
+          <div className="text-center p-8">
+            <div className="mb-4 p-6 bg-gray-700/50 rounded-full w-fit mx-auto">
+              <div className={`${isFullscreen ? 'text-6xl' : 'text-4xl'}`}>📺</div>
+            </div>
+            <p className={`${isFullscreen ? 'text-2xl' : 'text-lg'} font-semibold text-gray-300 mb-2`}>
+              Player {index + 1}
+            </p>
+            <p className={`${isFullscreen ? 'text-lg' : 'text-sm'} text-gray-500`}>
+              No video assigned
+            </p>
           </div>
         </div>
       )}

@@ -14,7 +14,7 @@ const FullscreenView = ({ assignments, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const allVideosReady = assignments.every((video, i) => !video || videosReady[i]);
-
+  const loadingProgress = (videosReady.filter(Boolean).length / assignments.length) * 100;
 
   const handleVideoReady = (index) => {
     setVideosReady((prev) => {
@@ -94,8 +94,13 @@ const FullscreenView = ({ assignments, onClose }) => {
       {/* Loading Overlay */}
       {!allVideosReady && (
         <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
-          <div className="text-white text-lg animate-pulse mb-4">⚙️ Loading videos...</div>
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="text-white text-lg mb-4">⚙️ Loading videos...</div>
+          <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
         </div>
       )}
 
