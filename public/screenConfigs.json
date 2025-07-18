@@ -1,10 +1,30 @@
 {
   "screen-1": [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
+    {
+      "url": "/videos/clip4.mp4",
+      "name": "clip4",
+      "timer": 10
+    },
+    {
+      "url": "/videos/clip2.mp4",
+      "name": "clip2",
+      "timer": 5
+    },
+    {
+      "url": "/videos/clip1.mp4",
+      "name": "clip1"
+    },
+    {
+      "url": "/videos/clip3.mp4",
+      "name": "clip3"
+    },
+    {
+      "url": "/videos/clip6.mp4",
+      "name": "clip6"
+    },
+    {
+      "url": "/videos/clip5.mp4",
+      "name": "clip5"
+    }
   ]
 }

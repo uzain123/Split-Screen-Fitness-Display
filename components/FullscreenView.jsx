@@ -141,6 +141,7 @@ const FullscreenView = ({ assignments, onClose }) => {
               src={assignment}
               index={index}
               isFullscreen={true}
+              timerDuration={assignment?.timer}
               onReadyToPlay={() => handleVideoReady(index)}
             />
           </div>
