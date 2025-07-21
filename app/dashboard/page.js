@@ -36,15 +36,33 @@ export default function Home() {
         const configData = await configRes.json();
         const videoData = await videosRes.json();
 
-        setAssignments(configData || Array(6).fill(null));
+        setAssignments(
+          Array(6)
+            .fill(null)
+            .map((_, i) => {
+              const item = configData?.[i];
+              if (!item || !item.url) return null;
+
+              return {
+                url: item.url,
+                name: item.name || item.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
+                timerDuration: item.timerDuration || 30,
+              };
+            })
+        );
+
+
+
         setVideos((videoData || []).map(v => {
           const url = typeof v === 'string' ? v : v?.url;
           if (!url) return null;
           return {
             url,
             name: url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
+            timerDuration: 30, // videos from folder won't have timer by default
           };
         }).filter(Boolean));
+
 
 
 
@@ -68,30 +86,49 @@ export default function Home() {
 
 
   useEffect(() => {
-    // Save screen-1 assignments to JSON via API whenever they change
-    const saveConfig = async () => {
-      try {
-        await fetch('/api/configs/screen-1', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(assignments),
-        });
-      } catch (error) {
-        console.error('Error saving config:', error);
-      }
-    };
+    const timeout = setTimeout(() => {
+      const saveConfig = async () => {
+        if (!assignments || assignments.length === 0 || assignments.every(item => item === null)) {
+          console.warn('🛑 Prevented POST: Empty or uninitialized assignments.');
+          return;
+        }
 
-    saveConfig();
+        console.log('✅ Saving config:', assignments);
+
+        try {
+          const res = await fetch('/api/configs/screen-1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(assignments),
+          });
+
+          if (!res.ok) throw new Error('Failed to save config');
+          console.log('✅ Config saved.');
+        } catch (err) {
+          console.error('❌ Error saving config:', err);
+        }
+      };
+
+      saveConfig();
+    }, 500); // Wait 0.5 sec before saving
+
+    return () => clearTimeout(timeout); // Cancel if changed too soon
   }, [assignments]);
 
 
 
 
-  const handleAssignVideo = (playerIndex, videoPath) => {
+  const handleAssignVideo = (playerIndex, video) => {
     const newAssignments = [...assignments];
-    newAssignments[playerIndex] = videoPath;
+    newAssignments[playerIndex] = {
+      url: video.url,
+      name: video.name,
+      timerDuration: video.timerDuration || 30,
+    };
     setAssignments(newAssignments);
   };
+
+
 
   const handleClearAll = () => {
     setAssignments(Array(assignments.length).fill(null));

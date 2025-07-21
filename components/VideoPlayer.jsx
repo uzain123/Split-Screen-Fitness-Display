@@ -2,12 +2,15 @@ import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } f
 import { Play, Pause, Volume2, VolumeX, Clock, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 
-const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => { }, timerDuration = 30 }, ref) => {
+const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => { } }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(timerDuration); // seconds
+
+  const timerDuration = typeof src?.timerDuration === 'number' ? src.timerDuration : 30;
+  const [timeLeft, setTimeLeft] = useState(timerDuration); // ✅ use dynamic timer
+
   const [expired, setExpired] = useState(false);
   const [delaying, setDelaying] = useState(false); // for 3s delay indicator
   const [delayProgress, setDelayProgress] = useState(0);

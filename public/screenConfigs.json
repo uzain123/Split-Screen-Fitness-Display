@@ -12,19 +12,23 @@
     },
     {
       "url": "/videos/clip1.mp4",
-      "name": "clip1"
+      "name": "clip1",
+      "timer":10
     },
     {
       "url": "/videos/clip3.mp4",
-      "name": "clip3"
+      "name": "clip3",
+      "timer":10
     },
     {
       "url": "/videos/clip6.mp4",
-      "name": "clip6"
+      "name": "clip6",
+      "timer":10
     },
     {
       "url": "/videos/clip5.mp4",
-      "name": "clip5"
+      "name": "clip5",
+      "timer":10
     }
   ]
 }

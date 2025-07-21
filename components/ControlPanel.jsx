@@ -28,23 +28,23 @@ const ControlPanel = ({
       setAssignments(updated);
     }
   };
-  
-  const handleNameChange = (index, newName) => {
-    const updated = [...assignments];
-    if (updated[index]) {
-      updated[index].name = newName;
-    } else {
-      updated[index] = { url: null, name: newName };
-    }
-    setAssignments(updated);
-  };
 
   const handleTimerChange = (index, timer) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = {};
-    updated[index].timer = parseInt(timer || '0');
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30 };
+
+    updated[index].timerDuration = parseInt(timer || '30');
     setAssignments(updated);
   };
+
+
+  const handleNameChange = (index, newName) => {
+    const updated = [...assignments];
+    if (!updated[index]) updated[index] = {};
+    updated[index].name = newName;
+    setAssignments(updated);
+  };
+
 
   return (
     <Card className="shadow-xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900">
@@ -74,7 +74,7 @@ const ControlPanel = ({
             <div className="w-1 h-6 bg-slate-400 rounded-full"></div>
             <h3 className="text-lg font-semibold text-slate-200">Display Management</h3>
           </div>
-          
+
           <div className="flex gap-3 justify-center p-4 bg-slate-700/50 rounded-lg border border-slate-600">
             <Button
               onClick={handleAddScreen}
@@ -184,8 +184,9 @@ const ControlPanel = ({
                       type="number"
                       min={1}
                       placeholder="30"
-                      value={assignment?.timer || ''}
+                      value={assignment?.timerDuration ?? 30}
                       onChange={(e) => handleTimerChange(index, e.target.value)}
+
                       className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-orange-400 focus:ring-orange-400 hover:bg-slate-700 transition-colors"
                     />
                   </div>
