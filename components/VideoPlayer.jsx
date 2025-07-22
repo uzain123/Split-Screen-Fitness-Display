@@ -2,14 +2,19 @@ import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } f
 import { Play, Pause, Volume2, VolumeX, Clock, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 
-const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => { }, timerDuration = 30 }, ref) => {
+const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPlay = () => { } }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(timerDuration); // seconds
+
+  const timerDuration = typeof src?.timerDuration === 'number' ? src.timerDuration : 30;
+  const delayDuration = typeof src?.delayDuration === 'number' ? src.delayDuration : 3; // ✅ customizable delay
+  const delayText = src?.delayText || 'Restarting Video'; // ✅ customizable text
+  
+  const [timeLeft, setTimeLeft] = useState(timerDuration);
   const [expired, setExpired] = useState(false);
-  const [delaying, setDelaying] = useState(false); // for 3s delay indicator
+  const [delaying, setDelaying] = useState(false);
   const [delayProgress, setDelayProgress] = useState(0);
   const timerRef = useRef(null);
 
@@ -22,7 +27,7 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
           clearInterval(timerRef.current);
           setExpired(true);
           setDelaying(true);
-          videoRef.current?.pause(); // stop video
+          videoRef.current?.pause();
           return 0;
         }
         return prev - 1;
@@ -37,7 +42,7 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
 
     let progress = 0;
     const progressInterval = setInterval(() => {
-      progress += 100 / 30; // 30 frames for 3 seconds
+      progress += 100 / (delayDuration * 10); // ✅ dynamic progress based on delay duration
       setDelayProgress(Math.min(progress, 100));
     }, 100);
 
@@ -50,13 +55,13 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
         videoRef.current.currentTime = 0;
         videoRef.current.play();
       }
-    }, 3000);
+    }, delayDuration * 1000); // ✅ use custom delay duration
 
     return () => {
       clearTimeout(delayTimeout);
       clearInterval(progressInterval);
     };
-  }, [delaying, timerDuration]);
+  }, [delaying, timerDuration, delayDuration]);
 
   useImperativeHandle(ref, () => ({
     play: () => {
@@ -124,7 +129,6 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
   };
 
   const handleCanPlayThrough = () => {
-    // Notify parent that video is fully ready
     onReadyToPlay(index);
   };
 
@@ -138,13 +142,15 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
 
   const getTimerColor = () => {
     if (expired) return 'from-red-500 to-red-600';
-    if (timeLeft <= 10) return 'from-orange-500 to-orange-600';
+    if (timeLeft <= 15) return 'from-orange-500 to-orange-600';
     return 'from-green-500 to-green-600';
   };
 
   return (
     <div
-      className={`relative bg-gray-900 rounded-xl overflow-hidden border border-gray-700 transition-all shadow-lg ${isFullscreen ? 'h-full' : 'aspect-video'}`}
+      className={`relative bg-gray-900 overflow-hidden border border-gray-700 transition-all shadow-lg ${
+        isFullscreen ? 'h-full' : 'aspect-video rounded-xl'
+      }`}
       onMouseMove={handleMouseMove}
     >
       {validSrc ? (
@@ -169,20 +175,19 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
             </div>
           )}
 
-          {/* Enhanced Timer Display */}
-          <div className="absolute top-4 left-4 z-10">
+          {/* Enhanced Timer Display - Top Center */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
             <div className={`bg-gradient-to-r ${getTimerColor()} p-0.5 rounded-xl shadow-lg`}>
-              <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-white" />
-                <span className="text-white font-mono text-sm font-semibold">
+              <div className="bg-gray-900/90 backdrop-blur-sm rounded-xl px-6 py-3 flex items-center gap-3">
+                <Clock className={`${isFullscreen ? 'h-6 w-6' : 'h-4 w-4'} text-white`} />
+                <span className={`text-white font-mono ${isFullscreen ? 'text-lg' : 'text-sm'} font-semibold`}>
                   {expired ? 'EXPIRED' : formatTime(timeLeft)}
                 </span>
               </div>
             </div>
           </div>
 
-
-          {/* Enhanced Delay Overlay */}
+          {/* Enhanced Delay Overlay with Custom Text and Duration */}
           {delaying && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 flex items-center justify-center">
               <div className="text-center">
@@ -197,8 +202,10 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
                     />
                   </div>
                 </div>
-                <div className="text-white text-xl font-semibold mb-2">Restarting Video</div>
-                <div className="text-gray-300 text-sm">Please wait...</div>
+                <div className="text-white text-xl font-semibold mb-2">{delayText}</div>
+                <div className="text-gray-300 text-sm">
+                  Please wait {delayDuration} second{delayDuration !== 1 ? 's' : ''}...
+                </div>
               </div>
             </div>
           )}

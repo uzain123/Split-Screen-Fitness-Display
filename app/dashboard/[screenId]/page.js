@@ -1,20 +1,18 @@
 'use client';
 import { loadConfig, saveConfig } from '@/lib/config';
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../components/ui/button';
 import { Maximize, Monitor, Settings } from 'lucide-react';
-import VideoPlayer from '../../components/VideoPlayer';
-import ControlPanel from '../../components/ControlPanel';
-import VideoUpload from '../../components/VideoUpload';
-import FullscreenView from '../../components/FullscreenView';
-import GlobalControls from '../../components/GlobalControls';
-
-
-
-
+import VideoPlayer from '../../../components/VideoPlayer';
+import ControlPanel from '../../../components/ControlPanel';
+import VideoUpload from '../../../components/VideoUpload';
+import FullscreenView from '../../../components/FullscreenView';
+import GlobalControls from '../../../components/GlobalControls';
+import { useParams } from 'next/navigation';
 
 
 export default function Home() {
+  const { screenId } = useParams();
   const [videos, setVideos] = useState([]);
   const [assignments, setAssignments] = useState(Array(6).fill(null));
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -29,24 +27,43 @@ export default function Home() {
     const fetchData = async () => {
       try {
         const [configRes, videosRes] = await Promise.all([
-          fetch('/api/configs/screen-1'),
+          fetch(`/api/configs/${screenId}`),
           fetch('/api/videos')
         ]);
 
         const configData = await configRes.json();
         const videoData = await videosRes.json();
 
-        setAssignments(configData || Array(6).fill(null));
+        // ✅ Updated to include delayDuration and delayText from config
+        setAssignments(
+          Array(6)
+            .fill(null)
+            .map((_, i) => {
+              const item = configData?.[i];
+              if (!item || !item.url) return null;
+
+              return {
+                url: item.url,
+                name: item.name || item.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
+                timerDuration: item.timerDuration || 30,
+                delayDuration: item.delayDuration || 3, // ✅ Load delay duration
+                delayText: item.delayText || 'Restarting Video', // ✅ Load delay text
+              };
+            })
+        );
+
+        // ✅ Updated to include default delayDuration and delayText for videos from folder
         setVideos((videoData || []).map(v => {
           const url = typeof v === 'string' ? v : v?.url;
           if (!url) return null;
           return {
             url,
             name: url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
+            timerDuration: 30,
+            delayDuration: 3, // ✅ Default delay duration
+            delayText: 'Restarting Video', // ✅ Default delay text
           };
         }).filter(Boolean));
-
-
 
         // Check for ?fullscreen=true
         const urlParams = new URLSearchParams(window.location.search);
@@ -65,31 +82,48 @@ export default function Home() {
     fetchData();
   }, []);
 
-
-
+  // ✅ Updated save config to include delayDuration and delayText
   useEffect(() => {
-    // Save screen-1 assignments to JSON via API whenever they change
-    const saveConfig = async () => {
-      try {
-        await fetch('/api/configs/screen-1', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(assignments),
-        });
-      } catch (error) {
-        console.error('Error saving config:', error);
-      }
-    };
+    const timeout = setTimeout(() => {
+      const saveConfig = async () => {
+        if (!assignments || assignments.length === 0 || assignments.every(item => item === null)) {
+          console.warn('🛑 Prevented POST: Empty or uninitialized assignments.');
+          return;
+        }
 
-    saveConfig();
+        // ✅ Log the full assignments including delay properties
+        console.log('✅ Saving config with delay settings:', assignments);
+
+        try {
+          const res = await fetch(`/api/configs/${screenId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(assignments), // This now includes delayDuration and delayText
+          });
+
+          if (!res.ok) throw new Error('Failed to save config');
+          console.log('✅ Config saved with delay settings.');
+        } catch (err) {
+          console.error('❌ Error saving config:', err);
+        }
+      };
+
+      saveConfig();
+    }, 500); // Wait 0.5 sec before saving
+
+    return () => clearTimeout(timeout); // Cancel if changed too soon
   }, [assignments]);
 
-
-
-
-  const handleAssignVideo = (playerIndex, videoPath) => {
+  // ✅ Updated to include delayDuration and delayText when assigning videos
+  const handleAssignVideo = (playerIndex, video) => {
     const newAssignments = [...assignments];
-    newAssignments[playerIndex] = videoPath;
+    newAssignments[playerIndex] = {
+      url: video.url,
+      name: video.name,
+      timerDuration: video.timerDuration || 30,
+      delayDuration: video.delayDuration || 3, // ✅ Include delay duration
+      delayText: video.delayText || 'Restarting Video', // ✅ Include delay text
+    };
     setAssignments(newAssignments);
   };
 
@@ -147,6 +181,7 @@ export default function Home() {
     setIsAllMuted(!isAllMuted);
   };
 
+  // ✅ Updated random assign to include delayDuration and delayText
   const handleRandomAssign = () => {
     let selected = [];
     if (videos.length >= 6) {
@@ -156,7 +191,12 @@ export default function Home() {
     } else if (videos.length > 0) {
       // Less than 6, allow repeats
       for (let i = 0; i < assignments.length; i++) {
-        selected.push(videos[Math.floor(Math.random() * videos.length)]);
+        const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+        selected.push({
+          ...randomVideo,
+          delayDuration: randomVideo.delayDuration || 3, // ✅ Ensure delay duration
+          delayText: randomVideo.delayText || 'Restarting Video', // ✅ Ensure delay text
+        });
       }
     } else {
       selected = Array(6).fill(null);
@@ -172,6 +212,7 @@ export default function Home() {
       />
     );
   }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black text-white">
@@ -234,13 +275,10 @@ export default function Home() {
               isFullscreen={isFullscreen}
               assignments={assignments}
             />
-
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {assignments.map((assignment, index) => (
               <VideoPlayer
-                timerDuration={assignment?.timer}
-
                 key={index}
                 ref={el => videoRefs.current[index] = el}
                 src={assignment}
@@ -275,7 +313,7 @@ export default function Home() {
 
             <div>
               <h4 className="font-medium mb-2">📁 Video Library:</h4>
-              <p>Simply add video files to the <code className="bg-gray-700 px-1 rounded">/public/videos/</code> folder. All valid `.mp4` files will automatically appear in your dashboard’s library—no upload needed.</p>
+              <p>Simply add video files to the <code className="bg-gray-700 px-1 rounded">/public/videos/</code> folder. All valid `.mp4` files will automatically appear in your dashboard's library—no upload needed.</p>
             </div>
 
             <div>
@@ -295,17 +333,22 @@ export default function Home() {
 
             <div>
               <h4 className="font-medium mb-2">📺 Fullscreen Display (TV Mode):</h4>
-              <p>Launch any screen in fullscreen mode using <strong>“TV Mode”</strong>. This is optimized for public displays, gyms, and projection walls.</p>
+              <p>Launch any screen in fullscreen mode using <strong>"TV Mode"</strong>. This is optimized for public displays, gyms, and projection walls.</p>
             </div>
 
             <div>
               <h4 className="font-medium mb-2">⚙️ Smart Randomizer:</h4>
-              <p>Click <strong>“Random Assign”</strong> to instantly populate all displays with random videos from your library. Ideal for quick demos or background loops.</p>
+              <p>Click <strong>"Random Assign"</strong> to instantly populate all displays with random videos from your library. Ideal for quick demos or background loops.</p>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">⏱️ Custom Timer & Delay Settings:</h4>
+              <p>Each video can have its own timer duration, delay time, and custom delay message. Default values are 30s timer, 3s delay, with "Restarting Video" message.</p>
             </div>
 
             <div>
               <h4 className="font-medium mb-2">⚠️ Config Saving (Local Only):</h4>
-              <p>Video assignments are saved in a <code className="bg-gray-700 px-1 rounded">screenConfigs.json</code> file. This only works during local development. In deployments like Vercel, assignments reset on page refresh.</p>
+              <p>Video assignments including timer and delay settings are saved in a <code className="bg-gray-700 px-1 rounded">screenConfigs.json</code> file. This only works during local development. In deployments like Vercel, assignments reset on page refresh.</p>
             </div>
 
             <div>
