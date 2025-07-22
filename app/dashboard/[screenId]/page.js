@@ -1,15 +1,18 @@
 'use client';
 import { loadConfig, saveConfig } from '@/lib/config';
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../components/ui/button';
 import { Maximize, Monitor, Settings } from 'lucide-react';
-import VideoPlayer from '../../components/VideoPlayer';
-import ControlPanel from '../../components/ControlPanel';
-import VideoUpload from '../../components/VideoUpload';
-import FullscreenView from '../../components/FullscreenView';
-import GlobalControls from '../../components/GlobalControls';
+import VideoPlayer from '../../../components/VideoPlayer';
+import ControlPanel from '../../../components/ControlPanel';
+import VideoUpload from '../../../components/VideoUpload';
+import FullscreenView from '../../../components/FullscreenView';
+import GlobalControls from '../../../components/GlobalControls';
+import { useParams } from 'next/navigation';
+
 
 export default function Home() {
+  const { screenId } = useParams();
   const [videos, setVideos] = useState([]);
   const [assignments, setAssignments] = useState(Array(6).fill(null));
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -24,7 +27,7 @@ export default function Home() {
     const fetchData = async () => {
       try {
         const [configRes, videosRes] = await Promise.all([
-          fetch('/api/configs/screen-1'),
+          fetch(`/api/configs/${screenId}`),
           fetch('/api/videos')
         ]);
 
@@ -92,7 +95,7 @@ export default function Home() {
         console.log('✅ Saving config with delay settings:', assignments);
 
         try {
-          const res = await fetch('/api/configs/screen-1', {
+          const res = await fetch(`/api/configs/${screenId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(assignments), // This now includes delayDuration and delayText
