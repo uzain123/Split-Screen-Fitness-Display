@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Button } from './ui/button';
-import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info } from 'lucide-react';
+import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info, Clock, MessageSquare } from 'lucide-react';
 import { Input } from './ui/input';
 
 const ControlPanel = ({
@@ -31,20 +31,36 @@ const ControlPanel = ({
 
   const handleTimerChange = (index, timer) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30 };
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
 
     updated[index].timerDuration = parseInt(timer || '30');
     setAssignments(updated);
   };
 
-
   const handleNameChange = (index, newName) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = {};
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
     updated[index].name = newName;
     setAssignments(updated);
   };
 
+  // ✅ New handler for delay duration
+  const handleDelayDurationChange = (index, delayDuration) => {
+    const updated = [...assignments];
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
+    
+    updated[index].delayDuration = parseInt(delayDuration || '3');
+    setAssignments(updated);
+  };
+
+  // ✅ New handler for delay text
+  const handleDelayTextChange = (index, delayText) => {
+    const updated = [...assignments];
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
+    
+    updated[index].delayText = delayText || 'Restarting Video';
+    setAssignments(updated);
+  };
 
   return (
     <Card className="shadow-xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900">
@@ -63,7 +79,7 @@ const ControlPanel = ({
           <div className="flex items-center gap-2 text-blue-300">
             <Info className="w-4 h-4" />
             <span className="text-sm font-medium">
-              Custom timer settings will take effect when the video restarts
+              Custom timer and delay settings will take effect when the video restarts
             </span>
           </div>
         </div>
@@ -121,8 +137,8 @@ const ControlPanel = ({
                   <div className="flex-1 h-px bg-slate-600"></div>
                 </div>
 
-                {/* Configuration Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Configuration Grid - Updated to 5 columns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   {/* Video Selection */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -186,8 +202,38 @@ const ControlPanel = ({
                       placeholder="30"
                       value={assignment?.timerDuration ?? 30}
                       onChange={(e) => handleTimerChange(index, e.target.value)}
-
                       className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-orange-400 focus:ring-orange-400 hover:bg-slate-700 transition-colors"
+                    />
+                  </div>
+
+                  {/* ✅ Delay Duration */}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                      <Clock className="w-4 h-4 text-purple-400" />
+                      Delay (seconds)
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      placeholder="3"
+                      value={assignment?.delayDuration ?? 3}
+                      onChange={(e) => handleDelayDurationChange(index, e.target.value)}
+                      className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-purple-400 focus:ring-purple-400 hover:bg-slate-700 transition-colors"
+                    />
+                  </div>
+
+                  {/* ✅ Delay Text */}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                      <MessageSquare className="w-4 h-4 text-pink-400" />
+                      Delay Message
+                    </label>
+                    <Input
+                      value={assignment?.delayText ?? 'Restarting Video'}
+                      onChange={(e) => handleDelayTextChange(index, e.target.value)}
+                      placeholder="Restarting Video"
+                      className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-pink-400 focus:ring-pink-400 hover:bg-slate-700 transition-colors"
                     />
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from './ui/button';
 import VideoPlayer from './VideoPlayer';
 import GlobalControls from './GlobalControls';
+import Image from 'next/image';
 
 const FullscreenView = ({ assignments, onClose }) => {
   const [showControls, setShowControls] = useState(true);
@@ -11,7 +12,6 @@ const FullscreenView = ({ assignments, onClose }) => {
   const [videosReady, setVideosReady] = useState(Array(assignments.length).fill(false));
   const videoRefs = useRef([]);
   const cursorTimeoutRef = useRef();
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const allVideosReady = assignments.every((video, i) => !video || videosReady[i]);
   const loadingProgress = (videosReady.filter(Boolean).length / assignments.length) * 100;
@@ -104,34 +104,53 @@ const FullscreenView = ({ assignments, onClose }) => {
         </div>
       )}
 
-      {/* Exit button and global controls */}
-      <div className={`absolute top-4 right-4 z-10 transition-opacity duration-300 flex items-center gap-4 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <GlobalControls
-          isAllPlaying={isAllPlaying}
-          isAllMuted={isAllMuted}
-          onPlayPauseAll={handlePlayPauseAll}
-          onMuteUnmuteAll={handleMuteUnmuteAll}
-          isFullscreen={true}
-          assignments={assignments}
-        />
+      {/* Top Header Bar */}
+      <div className={`relative h-16 bg-black border-b border-gray-800 flex items-center justify-between px-6 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Left - Fitness Display Text */}
+        <div className="flex-1 flex items-center">
+          <h1 className="text-white text-xl font-semibold tracking-wide">FITNESS DISPLAY</h1>
+        </div>
 
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={onClose}
-          className="h-12 w-12 p-0 bg-black/50 hover:bg-black/70"
-        >
-          <X className="h-6 w-6" />
-        </Button>
+        <div className="flex-1 flex justify-center items-center">
+          <Image
+            src="/logo.jpeg"
+            alt="Logo"
+            width={120}
+            height={60}
+            className="object-contain"
+            priority
+          />
+        </div>
+
+        {/* Right - Global Controls and Exit */}
+        <div className="flex-1 flex items-center justify-end gap-4">
+          <GlobalControls
+            isAllPlaying={isAllPlaying}
+            isAllMuted={isAllMuted}
+            onPlayPauseAll={handlePlayPauseAll}
+            onMuteUnmuteAll={handleMuteUnmuteAll}
+            isFullscreen={true}
+            assignments={assignments}
+          />
+
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={onClose}
+            className="h-12 w-12 p-0 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500/60 transition-all duration-200"
+          >
+            <X className="h-6 w-6 text-red-400" />
+          </Button>
+        </div>
       </div>
 
-      {/* Video grid */}
-      <div className="flex-1 p-4 grid gap-4"
+      {/* Video grid - more compact with less gaps */}
+      <div className="flex-1 p-2 grid gap-1"
         style={{
           gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(assignments.length))}, 1fr)`,
           gridTemplateRows: `repeat(${Math.ceil(assignments.length / Math.ceil(Math.sqrt(assignments.length)))}, 1fr)`,
           display: 'grid',
-          height: '100%',
+          height: 'calc(100% - 4rem)', // Account for header height
           minHeight: 0,
         }}>
         {assignments.map((assignment, index) => (
@@ -148,9 +167,8 @@ const FullscreenView = ({ assignments, onClose }) => {
         ))}
       </div>
 
-      {/* Instructions overlay */}
-      <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <p className="text-lg mb-2">TV Mode Active</p>
+      {/* Instructions overlay - moved to bottom left */}
+      <div className={`absolute bottom-4 left-6 text-white transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <p className="text-sm text-gray-300">Press ESC to exit • Move mouse to show controls</p>
       </div>
     </div>

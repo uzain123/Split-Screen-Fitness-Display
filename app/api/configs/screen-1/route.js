@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { redis } from '@/lib/kv'; // Redis client from Upstash
 
+
 export const dynamic = 'force-dynamic'; // Ensures fresh fetch per request (important for serverless)
 
 // Helper
