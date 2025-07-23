@@ -45,9 +45,9 @@ export default function Home() {
               return {
                 url: item.url,
                 name: item.name || item.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
-                timerDuration: item.timerDuration || 30,
-                delayDuration: item.delayDuration || 3, // ✅ Load delay duration
-                delayText: item.delayText || 'Restarting Video', // ✅ Load delay text
+                timerDuration: item.timerDuration || 60,
+                delayDuration: item.delayDuration || 30, // ✅ Load delay duration
+                delayText: item.delayText || 'Move to the next station', // ✅ Load delay text
               };
             })
         );
@@ -59,9 +59,9 @@ export default function Home() {
           return {
             url,
             name: url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
-            timerDuration: 30,
-            delayDuration: 3, // ✅ Default delay duration
-            delayText: 'Restarting Video', // ✅ Default delay text
+            timerDuration: 60,
+            delayDuration: 30, // ✅ Default delay duration
+            delayText: 'Move to the next station', // ✅ Default delay text
           };
         }).filter(Boolean));
 
@@ -120,9 +120,9 @@ export default function Home() {
     newAssignments[playerIndex] = {
       url: video.url,
       name: video.name,
-      timerDuration: video.timerDuration || 30,
-      delayDuration: video.delayDuration || 3, // ✅ Include delay duration
-      delayText: video.delayText || 'Restarting Video', // ✅ Include delay text
+      timerDuration: video.timerDuration || 60,
+      delayDuration: video.delayDuration || 30, // ✅ Include delay duration
+      delayText: video.delayText || 'Move to the next station', // ✅ Include delay text
     };
     setAssignments(newAssignments);
   };
@@ -181,27 +181,47 @@ export default function Home() {
     setIsAllMuted(!isAllMuted);
   };
 
-  // ✅ Updated random assign to include delayDuration and delayText
+  // ✅ Updated random assign to properly shuffle unique URLs while preserving all other settings
   const handleRandomAssign = () => {
-    let selected = [];
-    if (videos.length >= 6) {
-      // Shuffle and pick 6 unique
+    if (videos.length === 0) {
+      console.warn('No videos available for random assignment');
+      return;
+    }
+
+    let shuffledVideoUrls = [];
+
+    if (videos.length >= assignments.length) {
+      // Shuffle and pick unique videos for each slot
       const shuffled = [...videos].sort(() => 0.5 - Math.random());
-      selected = shuffled.slice(0, assignments.length);
-    } else if (videos.length > 0) {
-      // Less than 6, allow repeats
+      shuffledVideoUrls = shuffled.slice(0, assignments.length).map(v => v.url);
+    } else {
+      // Less videos than slots, allow repeats but still shuffle
       for (let i = 0; i < assignments.length; i++) {
         const randomVideo = videos[Math.floor(Math.random() * videos.length)];
-        selected.push({
-          ...randomVideo,
-          delayDuration: randomVideo.delayDuration || 3, // ✅ Ensure delay duration
-          delayText: randomVideo.delayText || 'Restarting Video', // ✅ Ensure delay text
-        });
+        shuffledVideoUrls.push(randomVideo.url);
       }
-    } else {
-      selected = Array(6).fill(null);
     }
-    setAssignments(selected);
+
+    const newAssignments = assignments.map((currentAssignment, index) => {
+      // If there's no current assignment, create a new one with default values
+      if (!currentAssignment) {
+        return {
+          url: shuffledVideoUrls[index],
+          name: videos.find(v => v.url === shuffledVideoUrls[index])?.name || 'Unnamed',
+          timerDuration: 30,
+          delayDuration: 3,
+          delayText: 'Move to the next station',
+        };
+      }
+
+      // If there's an existing assignment, preserve all settings and only change the URL
+      return {
+        ...currentAssignment, // Preserve all existing properties
+        url: shuffledVideoUrls[index],  // Only change the URL to the shuffled one
+      };
+    });
+
+    setAssignments(newAssignments);
   };
 
   if (isFullscreen) {
@@ -311,10 +331,6 @@ export default function Home() {
           <h3 className="text-lg font-semibold mb-3 text-blue-400">Getting Started</h3>
           <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
 
-            <div>
-              <h4 className="font-medium mb-2">📁 Video Library:</h4>
-              <p>Simply add video files to the <code className="bg-gray-700 px-1 rounded">/public/videos/</code> folder. All valid `.mp4` files will automatically appear in your dashboard's library—no upload needed.</p>
-            </div>
 
             <div>
               <h4 className="font-medium mb-2">➕ Dynamic Displays:</h4>
@@ -337,19 +353,10 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="font-medium mb-2">⚙️ Smart Randomizer:</h4>
-              <p>Click <strong>"Random Assign"</strong> to instantly populate all displays with random videos from your library. Ideal for quick demos or background loops.</p>
-            </div>
-
-            <div>
               <h4 className="font-medium mb-2">⏱️ Custom Timer & Delay Settings:</h4>
-              <p>Each video can have its own timer duration, delay time, and custom delay message. Default values are 30s timer, 3s delay, with "Restarting Video" message.</p>
+              <p>Each video can have its own timer duration, delay time, and custom delay message. Default values are 30s timer, 30s delay, with "Move to the next station" message.</p>
             </div>
 
-            <div>
-              <h4 className="font-medium mb-2">⚠️ Config Saving (Local Only):</h4>
-              <p>Video assignments including timer and delay settings are saved in a <code className="bg-gray-700 px-1 rounded">screenConfigs.json</code> file. This only works during local development. In deployments like Vercel, assignments reset on page refresh.</p>
-            </div>
 
             <div>
               <h4 className="font-medium mb-2">⚡ Performance:</h4>
