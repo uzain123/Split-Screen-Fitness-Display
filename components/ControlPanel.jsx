@@ -31,15 +31,15 @@ const ControlPanel = ({
 
   const handleTimerChange = (index, timer) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
 
-    updated[index].timerDuration = parseInt(timer || '30');
+    updated[index].timerDuration = parseInt(timer || '60');
     setAssignments(updated);
   };
 
   const handleNameChange = (index, newName) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
     updated[index].name = newName;
     setAssignments(updated);
   };
@@ -47,16 +47,16 @@ const ControlPanel = ({
   // ✅ New handler for delay duration
   const handleDelayDurationChange = (index, delayDuration) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
     
-    updated[index].delayDuration = parseInt(delayDuration || '3');
+    updated[index].delayDuration = parseInt(delayDuration || '30');
     setAssignments(updated);
   };
 
   // ✅ New handler for delay text
   const handleDelayTextChange = (index, delayText) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 30, delayDuration: 3, delayText: 'Restarting Video' };
+    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
     
     updated[index].delayText = delayText || 'Restarting Video';
     setAssignments(updated);
@@ -200,7 +200,7 @@ const ControlPanel = ({
                       type="number"
                       min={1}
                       placeholder="30"
-                      value={assignment?.timerDuration ?? 30}
+                      value={assignment?.timerDuration ?? 60}
                       onChange={(e) => handleTimerChange(index, e.target.value)}
                       className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-orange-400 focus:ring-orange-400 hover:bg-slate-700 transition-colors"
                     />
@@ -217,7 +217,7 @@ const ControlPanel = ({
                       min={1}
                       max={10}
                       placeholder="3"
-                      value={assignment?.delayDuration ?? 3}
+                      value={assignment?.delayDuration ?? 30}
                       onChange={(e) => handleDelayDurationChange(index, e.target.value)}
                       className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-purple-400 focus:ring-purple-400 hover:bg-slate-700 transition-colors"
                     />

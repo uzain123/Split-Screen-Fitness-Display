@@ -105,7 +105,8 @@ const FullscreenView = ({ assignments, onClose }) => {
       )}
 
       {/* Top Header Bar */}
-      <div className={`relative h-16 bg-black border-b border-gray-800 flex items-center justify-between px-6 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+
+      <div className="relative h-16 bg-black border-b border-gray-800 flex items-center justify-between px-6">
         {/* Left - Fitness Display Text */}
         <div className="flex-1 flex items-center">
           <h1 className="text-white text-xl font-semibold tracking-wide">FITNESS DISPLAY</h1>

@@ -8,8 +8,8 @@ const VideoPlayer = forwardRef(({ src, index, isFullscreen = false, onReadyToPla
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
 
-  const timerDuration = typeof src?.timerDuration === 'number' ? src.timerDuration : 30;
-  const delayDuration = typeof src?.delayDuration === 'number' ? src.delayDuration : 3; // ✅ customizable delay
+  const timerDuration = typeof src?.timerDuration === 'number' ? src.timerDuration : 60;
+  const delayDuration = typeof src?.delayDuration === 'number' ? src.delayDuration : 30; // ✅ customizable delay
   const delayText = src?.delayText || 'Restarting Video'; // ✅ customizable text
   
   const [timeLeft, setTimeLeft] = useState(timerDuration);
