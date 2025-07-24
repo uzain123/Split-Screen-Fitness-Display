@@ -58,11 +58,7 @@ const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDela
           </span>
         </div>
       </div>
-      <div className="text-white">
-        <div className="text-xs text-white/70 uppercase tracking-wide">
-          {inDelay ? delayText : `${label} ${isActive && isPlaying ? '(Running)' : '(Stopped)'}`}
-        </div>
-      </div>
+
     </div>
   );
 };
@@ -361,46 +357,50 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
         </div>
       )}
 
-      {/* Top Header Bar */}
-      <div className="relative h-20 bg-black border-b border-gray-800 flex items-center justify-between px-6">
+      <div className="relative h-28 bg-black border-b border-gray-800 flex items-center justify-between px-12">
         {/* Left - Timer 1 Display */}
-        <div className="flex-1 flex items-center">
-          <CircularTimer
-            timeLeft={timer1InDelay ? timer1DelayTimeLeft : timer1TimeLeft}
-            totalTime={timer1InDelay ? timer1Values.delay : timer1Values.duration}
-            isActive={timer1Active}
-            isPlaying={isAllPlaying}
-            label="Timer 1"
-            inDelay={timer1InDelay}
-            delayText={timer1Values.delayText}
-          />
+        <div className="flex-1 flex items-center pl-4 ">
+          <div className="scale-125 transform">
+            <CircularTimer
+              timeLeft={timer1InDelay ? timer1DelayTimeLeft : timer1TimeLeft}
+              totalTime={timer1InDelay ? timer1Values.delay : timer1Values.duration}
+              isActive={timer1Active}
+              isPlaying={isAllPlaying}
+              label="Timer 1"
+              inDelay={timer1InDelay}
+              delayText={timer1Values.delayText}
+            />
+          </div>
         </div>
 
-        <div className="flex-1 flex justify-center items-center">
+        {/* Center - Logo */}
+        <div className="flex-1 flex justify-center items-center px-8">
           <Image
             src="/logo.jpeg"
             alt="Logo"
-            width={120}
-            height={60}
+            width={160}
+            height={80}
             className="object-contain"
             priority
           />
         </div>
 
         {/* Right - Global Timer 3 and Exit */}
-        <div className="flex-1 flex items-center justify-end gap-4">
-          <CircularTimer
-            timeLeft={globalTimeLeft}
-            totalTime={globalTimer3 || 2700}
-            isActive={globalTimerActive}
-            isPlaying={isAllPlaying}
-            label="Global Timer"
-          />
+        <div className="flex-1 flex items-center justify-end gap-6 pr-4">
+          <div className="scale-125 transform">
+            <CircularTimer
+              timeLeft={globalTimeLeft}
+              totalTime={globalTimer3 || 2700}
+              isActive={globalTimerActive}
+              isPlaying={isAllPlaying}
+              label="Global Timer"
+            />
+          </div>
           <Button
             variant="secondary"
             size="lg"
             onClick={onClose}
-            className="h-12 w-12 p-0 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500/60 transition-all duration-200"
+            className="h-12 w-12 p-0 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500/60 transition-all duration-200 ml-4"
           >
             <X className="h-6 w-6 text-red-400" />
           </Button>
