@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Play, Pause, Volume2, VolumeX, Clock, RotateCcw } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Clock, RotateCcw, RotateCw } from 'lucide-react';
 import { Button } from './ui/button';
 
 // Circular Timer Component for VideoPlayer
@@ -266,18 +266,19 @@ const VideoPlayer = forwardRef(({
 
           {/* Timer Display - Only Timer 2 on middle top video */}
           {isFullscreen && src && isMiddleTop && timer2TimeLeft !== undefined && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 text-gray-700">
-
-
-              <CircularTimerOverlay
-                timeLeft={timer2TimeLeft}
-                totalTime={src.timerDuration || 60}
-                isActive={timer2Active}
-                isPlaying={isPlaying}
-                label="Timer 2"
-                size="sm"
-              />
-
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20">
+              <div className="bg-black/10 backdrop-blur-sm rounded-xl p-2 border border-white/30 shadow-sm">
+                <div className="scale-100 transform">
+                  <CircularTimerOverlay
+                    timeLeft={timer2TimeLeft}
+                    totalTime={src.timerDuration || 60}
+                    isActive={timer2Active}
+                    isPlaying={isPlaying}
+                    label="Timer 2"
+                    size="md"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -300,7 +301,7 @@ const VideoPlayer = forwardRef(({
               <div className="text-center">
                 <div className="relative mb-6">
                   <div className="w-20 h-20 border-4 border-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <RotateCcw className="h-8 w-8 text-white animate-spin" />
+                    <RotateCw className="h-8 w-8 text-white animate-spin" />
                   </div>
                   <div className="w-32 h-2 bg-gray-700 rounded-full mx-auto overflow-hidden">
                     <div
@@ -318,7 +319,7 @@ const VideoPlayer = forwardRef(({
           )}
 
           {/* Enhanced Controls */}
-          <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'}`}>
+          {/* <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${showControls || !isFullscreen ? 'opacity-100' : 'opacity-0'}`}>
             <div className="flex gap-3">
               <Button
                 variant="secondary"
@@ -346,7 +347,7 @@ const VideoPlayer = forwardRef(({
                 )}
               </Button>
             </div>
-          </div>
+          </div> */}
 
           {/* Global Timer Expired Overlay */}
           {globalTimer3 === 0 && (
