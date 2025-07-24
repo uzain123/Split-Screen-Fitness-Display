@@ -21,6 +21,15 @@ export default function Home() {
   const [isAllMuted, setIsAllMuted] = useState(false);
   const videoRefs = useRef([]);
 
+  // Global timer states
+  const [globalTimers, setGlobalTimers] = useState({
+    timer1: 60,      // Timer for all displays except middle top
+    timer2: 60,      // Timer for middle top display only
+    timer3: 2700,     // Global pause timer (not saved to JSON)
+    delay1: 30,      // Delay for Timer 1 displays
+    delayText1: 'Move to the next station' // Delay text for Timer 1 displays
+  });
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +43,7 @@ export default function Home() {
         const configData = await configRes.json();
         const videoData = await videosRes.json();
 
-        // ✅ Updated to include delayDuration and delayText from config
+        // Load assignments from config
         setAssignments(
           Array(6)
             .fill(null)
@@ -46,13 +55,13 @@ export default function Home() {
                 url: item.url,
                 name: item.name || item.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
                 timerDuration: item.timerDuration || 60,
-                delayDuration: item.delayDuration || 30, // ✅ Load delay duration
-                delayText: item.delayText || 'Move to the next station', // ✅ Load delay text
+                delayDuration: item.delayDuration || (i === 1 ? 0 : 30), // Middle top (index 1) has 0 delay
+                delayText: item.delayText || 'Move to the next station',
               };
             })
         );
 
-        // ✅ Updated to include default delayDuration and delayText for videos from folder
+        // Set up videos from folder
         setVideos((videoData || []).map(v => {
           const url = typeof v === 'string' ? v : v?.url;
           if (!url) return null;
@@ -60,10 +69,30 @@ export default function Home() {
             url,
             name: url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
             timerDuration: 60,
-            delayDuration: 30, // ✅ Default delay duration
-            delayText: 'Move to the next station', // ✅ Default delay text
+            delayDuration: 30,
+            delayText: 'Move to the next station',
           };
         }).filter(Boolean));
+
+        // Extract global timer values from the first valid assignment (if exists)
+        const firstAssignment = configData?.find(item => item && item.url);
+        if (firstAssignment) {
+          setGlobalTimers(prev => ({
+            ...prev,
+            timer1: firstAssignment.timerDuration || 60,
+            delay1: firstAssignment.delayDuration || 30,
+            delayText1: firstAssignment.delayText || 'Move to the next station'
+          }));
+        }
+
+        // Extract timer2 from middle top assignment (index 1)
+        const middleTopAssignment = configData?.[1];
+        if (middleTopAssignment && middleTopAssignment.url) {
+          setGlobalTimers(prev => ({
+            ...prev,
+            timer2: middleTopAssignment.timerDuration || 60
+          }));
+        }
 
         // Check for ?fullscreen=true
         const urlParams = new URLSearchParams(window.location.search);
@@ -75,14 +104,14 @@ export default function Home() {
       } catch (err) {
         console.error('Error loading data:', err);
       } finally {
-        setIsLoading(false); // Done loading
+        setIsLoading(false);
       }
     };
 
     fetchData();
   }, []);
 
-  // ✅ Updated save config to include delayDuration and delayText
+  // Save config to API with proper timer distribution
   useEffect(() => {
     const timeout = setTimeout(() => {
       const saveConfig = async () => {
@@ -91,39 +120,55 @@ export default function Home() {
           return;
         }
 
-        // ✅ Log the full assignments including delay properties
-        console.log('✅ Saving config with delay settings:', assignments);
+        console.log('✅ Saving config with global timer settings:', assignments);
 
         try {
           const res = await fetch(`/api/configs/${screenId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(assignments), // This now includes delayDuration and delayText
+            body: JSON.stringify(assignments),
           });
 
           if (!res.ok) throw new Error('Failed to save config');
-          console.log('✅ Config saved with delay settings.');
+          console.log('✅ Config saved with global timer settings.');
         } catch (err) {
           console.error('❌ Error saving config:', err);
         }
       };
 
       saveConfig();
-    }, 500); // Wait 0.5 sec before saving
+    }, 500);
 
-    return () => clearTimeout(timeout); // Cancel if changed too soon
+    return () => clearTimeout(timeout);
   }, [assignments]);
 
-  // ✅ Updated to include delayDuration and delayText when assigning videos
+  // Handle video assignment with proper timer application
   const handleAssignVideo = (playerIndex, video) => {
     const newAssignments = [...assignments];
+    
+    // Apply appropriate timer based on player index
+    let timerDuration, delayDuration, delayText;
+    
+    if (playerIndex === 1) {
+      // Middle top - Timer 2
+      timerDuration = globalTimers.timer2;
+      delayDuration = 0; // No delay for Timer 2
+      delayText = 'Restarting Video'; // Default text for Timer 2
+    } else {
+      // All other displays - Timer 1
+      timerDuration = globalTimers.timer1;
+      delayDuration = globalTimers.delay1;
+      delayText = globalTimers.delayText1;
+    }
+
     newAssignments[playerIndex] = {
       url: video.url,
       name: video.name,
-      timerDuration: video.timerDuration || 60,
-      delayDuration: video.delayDuration || 30, // ✅ Include delay duration
-      delayText: video.delayText || 'Move to the next station', // ✅ Include delay text
+      timerDuration: timerDuration,
+      delayDuration: delayDuration,
+      delayText: delayText,
     };
+    
     setAssignments(newAssignments);
   };
 
@@ -131,30 +176,30 @@ export default function Home() {
     setAssignments(Array(assignments.length).fill(null));
   };
 
-  const enterFullscreen = () => {
-    // Reset all video states when entering fullscreen
-    videoRefs.current.forEach(ref => {
-      if (ref) {
-        ref.pause();
-      }
-    });
-    setIsAllPlaying(false);
-    setIsAllMuted(false);
-    setIsFullscreen(true);
-  };
+const enterFullscreen = () => {
+  // Instead of pausing, start playing all videos when entering fullscreen
+  videoRefs.current.forEach(ref => {
+    if (ref) {
+      ref.play(); // Start playing instead of pausing
+    }
+  });
+  setIsAllPlaying(true); // Set to playing state
+  setIsAllMuted(false); // Optionally unmute as well
+  setIsFullscreen(true);
+};
 
-  const exitFullscreen = () => {
-    // Reset all video states when exiting fullscreen
-    videoRefs.current.forEach(ref => {
-      if (ref) {
-        ref.pause();
-      }
-    });
-    setIsAllPlaying(false);
-    setIsAllMuted(false);
-    setIsFullscreen(false);
-  };
-
+// Keep exitFullscreen as is, or update similarly if you want videos to keep playing:
+const exitFullscreen = () => {
+  // Reset all video states when exiting fullscreen
+  videoRefs.current.forEach(ref => {
+    if (ref) {
+      ref.play();
+    }
+  });
+  setIsAllPlaying(true);
+  setIsAllMuted(false);
+  setIsFullscreen(false);
+};
   const handlePlayPauseAll = () => {
     videoRefs.current.forEach(ref => {
       if (ref) {
@@ -181,7 +226,7 @@ export default function Home() {
     setIsAllMuted(!isAllMuted);
   };
 
-  // ✅ Updated random assign to properly shuffle unique URLs while preserving all other settings
+  // Updated random assign with proper timer application
   const handleRandomAssign = () => {
     if (videos.length === 0) {
       console.warn('No videos available for random assignment');
@@ -203,21 +248,39 @@ export default function Home() {
     }
 
     const newAssignments = assignments.map((currentAssignment, index) => {
-      // If there's no current assignment, create a new one with default values
+      // Apply appropriate timer based on player index
+      let timerDuration, delayDuration, delayText;
+      
+      if (index === 1) {
+        // Middle top - Timer 2
+        timerDuration = globalTimers.timer2;
+        delayDuration = 0;
+        delayText = 'Restarting Video';
+      } else {
+        // All other displays - Timer 1
+        timerDuration = globalTimers.timer1;
+        delayDuration = globalTimers.delay1;
+        delayText = globalTimers.delayText1;
+      }
+
+      // If there's no current assignment, create a new one with proper timer values
       if (!currentAssignment) {
         return {
           url: shuffledVideoUrls[index],
           name: videos.find(v => v.url === shuffledVideoUrls[index])?.name || 'Unnamed',
-          timerDuration: 30,
-          delayDuration: 3,
-          delayText: 'Move to the next station',
+          timerDuration: timerDuration,
+          delayDuration: delayDuration,
+          delayText: delayText,
         };
       }
 
-      // If there's an existing assignment, preserve all settings and only change the URL
+      // If there's an existing assignment, preserve name but apply global timer settings
       return {
-        ...currentAssignment, // Preserve all existing properties
-        url: shuffledVideoUrls[index],  // Only change the URL to the shuffled one
+        ...currentAssignment,
+        url: shuffledVideoUrls[index],
+        timerDuration: timerDuration,
+        delayDuration: delayDuration,
+        delayText: delayText,
       };
     });
 
@@ -229,6 +292,7 @@ export default function Home() {
       <FullscreenView
         assignments={assignments}
         onClose={exitFullscreen}
+        globalTimer3={globalTimers.timer3} // Pass Timer 3 to fullscreen view
       />
     );
   }
@@ -294,6 +358,7 @@ export default function Home() {
               onRandomAssign={handleRandomAssign}
               isFullscreen={isFullscreen}
               assignments={assignments}
+              globalTimer3={globalTimers.timer3}
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -303,6 +368,7 @@ export default function Home() {
                 ref={el => videoRefs.current[index] = el}
                 src={assignment}
                 index={index}
+                globalTimer3={globalTimers.timer3}
               />
             ))}
           </div>
@@ -317,6 +383,8 @@ export default function Home() {
               onAssignVideo={handleAssignVideo}
               setAssignments={setAssignments}
               onClearAll={handleClearAll}
+              globalTimers={globalTimers}
+              setGlobalTimers={setGlobalTimers}
             />
 
             {/* <VideoUpload
@@ -330,7 +398,6 @@ export default function Home() {
         <div className="mt-8 p-6 bg-gray-800 rounded-lg border border-gray-700">
           <h3 className="text-lg font-semibold mb-3 text-blue-400">Getting Started</h3>
           <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
-
 
             <div>
               <h4 className="font-medium mb-2">➕ Dynamic Displays:</h4>
@@ -353,10 +420,9 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="font-medium mb-2">⏱️ Custom Timer & Delay Settings:</h4>
-              <p>Each video can have its own timer duration, delay time, and custom delay message. Default values are 30s timer, 30s delay, with "Move to the next station" message.</p>
+              <h4 className="font-medium mb-2">⏱️ Global Timer System:</h4>
+              <p><strong>Timer 1:</strong> Applied to all displays except middle top. <strong>Timer 2:</strong> Applied only to middle top display (no delay). <strong>Timer 3:</strong> Global pause timer that stops all videos when reached.</p>
             </div>
-
 
             <div>
               <h4 className="font-medium mb-2">⚡ Performance:</h4>

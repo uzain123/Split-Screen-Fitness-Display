@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Button } from './ui/button';
-import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info, Clock, MessageSquare } from 'lucide-react';
+import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info, Clock, MessageSquare, Globe } from 'lucide-react';
 import { Input } from './ui/input';
 
 const ControlPanel = ({
@@ -10,10 +10,10 @@ const ControlPanel = ({
   assignments,
   onAssignVideo,
   setAssignments,
-  onClearAll
+  onClearAll,
+  globalTimers,
+  setGlobalTimers
 }) => {
-
-  const [globalTimer, setGlobalTimer] = React.useState(120); // default 2 minutes
 
   const handleAddScreen = () => {
     if (assignments.length < 6) {
@@ -29,14 +29,6 @@ const ControlPanel = ({
     }
   };
 
-  const handleTimerChange = (index, timer) => {
-    const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
-
-    updated[index].timerDuration = parseInt(timer || '60');
-    setAssignments(updated);
-  };
-
   const handleNameChange = (index, newName) => {
     const updated = [...assignments];
     if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
@@ -44,21 +36,64 @@ const ControlPanel = ({
     setAssignments(updated);
   };
 
-  // ✅ New handler for delay duration
-  const handleDelayDurationChange = (index, delayDuration) => {
-    const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
+  // Handle global timer changes
+  const handleGlobalTimer1Change = (value) => {
+    const timer1Value = parseInt(value || '60');
+    setGlobalTimers(prev => ({ ...prev, timer1: timer1Value }));
     
-    updated[index].delayDuration = parseInt(delayDuration || '30');
+    // Apply Timer 1 to all displays except index 1 (middle top)
+    const updated = [...assignments];
+    updated.forEach((assignment, index) => {
+      if (index !== 1 && assignment) { // Skip middle top (index 1)
+        assignment.timerDuration = timer1Value;
+      }
+    });
     setAssignments(updated);
   };
 
-  // ✅ New handler for delay text
-  const handleDelayTextChange = (index, delayText) => {
-    const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
+  const handleGlobalTimer2Change = (value) => {
+    const timer2Value = parseInt(value || '60');
+    setGlobalTimers(prev => ({ ...prev, timer2: timer2Value }));
     
-    updated[index].delayText = delayText || 'Restarting Video';
+    // Apply Timer 2 only to middle top display (index 1)
+    const updated = [...assignments];
+    if (updated[1]) {
+      updated[1].timerDuration = timer2Value;
+      updated[1].delayDuration = 0; // Default 0 delay for timer 2
+    }
+    setAssignments(updated);
+  };
+
+  const handleGlobalTimer3Change = (value) => {
+    const timer3Value = parseInt(value || '2700');
+    setGlobalTimers(prev => ({ ...prev, timer3: timer3Value }));
+  };
+
+  const handleDelay1Change = (value) => {
+    const delay1Value = parseInt(value || '30');
+    setGlobalTimers(prev => ({ ...prev, delay1: delay1Value }));
+    
+    // Apply Delay 1 to all displays except index 1 (middle top)
+    const updated = [...assignments];
+    updated.forEach((assignment, index) => {
+      if (index !== 1 && assignment) { // Skip middle top (index 1)
+        assignment.delayDuration = delay1Value;
+      }
+    });
+    setAssignments(updated);
+  };
+
+  const handleDelayText1Change = (value) => {
+    const delayText1Value = value || 'Move to the next station';
+    setGlobalTimers(prev => ({ ...prev, delayText1: delayText1Value }));
+    
+    // Apply Delay Text 1 to all displays except index 1 (middle top)
+    const updated = [...assignments];
+    updated.forEach((assignment, index) => {
+      if (index !== 1 && assignment) { // Skip middle top (index 1)
+        assignment.delayText = delayText1Value;
+      }
+    });
     setAssignments(updated);
   };
 
@@ -79,8 +114,101 @@ const ControlPanel = ({
           <div className="flex items-center gap-2 text-blue-300">
             <Info className="w-4 h-4" />
             <span className="text-sm font-medium">
-              Custom timer and delay settings will take effect when the video restarts
+              Global timer settings will apply to all videos. Timer 1 affects all displays except middle top, Timer 2 affects only middle top, Timer 3 is global pause timer.
             </span>
+          </div>
+        </div>
+
+        {/* Global Timer Controls Section */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-6 bg-gradient-to-b from-orange-400 to-red-400 rounded-full"></div>
+            <h3 className="text-lg font-semibold text-slate-200">Global Timer Controls</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-5 bg-gradient-to-r from-orange-900/20 to-red-900/20 border border-orange-700/50 rounded-xl">
+            {/* Timer 1 - All displays except middle top */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-orange-300">
+                <Timer className="w-4 h-4 text-orange-400" />
+                Timer 1 (All except middle)
+              </label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="60"
+                value={globalTimers.timer1}
+                onChange={(e) => handleGlobalTimer1Change(e.target.value)}
+                className="bg-slate-700/50 border-orange-500/50 text-slate-200 placeholder-slate-400 focus:border-orange-400 focus:ring-orange-400 hover:bg-slate-700 transition-colors"
+              />
+              <span className="text-xs text-orange-300/70">seconds</span>
+            </div>
+
+            {/* Timer 2 - Middle top only */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-300">
+                <Timer className="w-4 h-4 text-purple-400" />
+                Timer 2 (Middle top only)
+              </label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="60"
+                value={globalTimers.timer2}
+                onChange={(e) => handleGlobalTimer2Change(e.target.value)}
+                className="bg-slate-700/50 border-purple-500/50 text-slate-200 placeholder-slate-400 focus:border-purple-400 focus:ring-purple-400 hover:bg-slate-700 transition-colors"
+              />
+              <span className="text-xs text-purple-300/70">seconds</span>
+            </div>
+
+            {/* Timer 3 - Global pause timer */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-red-300">
+                <Globe className="w-4 h-4 text-red-400" />
+                Timer 3 (Global pause)
+              </label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="2700"
+                value={globalTimers.timer3}
+                onChange={(e) => handleGlobalTimer3Change(e.target.value)}
+                className="bg-slate-700/50 border-red-500/50 text-slate-200 placeholder-slate-400 focus:border-red-400 focus:ring-red-400 hover:bg-slate-700 transition-colors"
+              />
+              <span className="text-xs text-red-300/70">seconds</span>
+            </div>
+
+            {/* Delay 1 - For Timer 1 displays */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-blue-300">
+                <Clock className="w-4 h-4 text-blue-400" />
+                Delay 1 (Timer 1 displays)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={60}
+                placeholder="30"
+                value={globalTimers.delay1}
+                onChange={(e) => handleDelay1Change(e.target.value)}
+                className="bg-slate-700/50 border-blue-500/50 text-slate-200 placeholder-slate-400 focus:border-blue-400 focus:ring-blue-400 hover:bg-slate-700 transition-colors"
+              />
+              <span className="text-xs text-blue-300/70">seconds</span>
+            </div>
+
+            {/* Delay Text 1 - For Timer 1 displays */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-green-300">
+                <MessageSquare className="w-4 h-4 text-green-400" />
+                Delay Message 1
+              </label>
+              <Input
+                value={globalTimers.delayText1}
+                onChange={(e) => handleDelayText1Change(e.target.value)}
+                placeholder="Move to the next station"
+                className="bg-slate-700/50 border-green-500/50 text-slate-200 placeholder-slate-400 focus:border-green-400 focus:ring-green-400 hover:bg-slate-700 transition-colors"
+              />
+            </div>
           </div>
         </div>
 
@@ -131,14 +259,14 @@ const ControlPanel = ({
                   <div className="flex items-center gap-2 px-3 py-1 bg-slate-600 text-white rounded-lg">
                     <Monitor className="w-4 h-4" />
                     <span className="font-semibold text-sm">
-                      Player {index + 1}
+                      Player {index + 1} {index === 1 ? '(Middle Top - Timer 2)' : '(Timer 1)'}
                     </span>
                   </div>
                   <div className="flex-1 h-px bg-slate-600"></div>
                 </div>
 
-                {/* Configuration Grid - Updated to 5 columns */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Configuration Grid - Only Video Selection and Custom Name */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Video Selection */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -189,52 +317,43 @@ const ControlPanel = ({
                       className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-green-400 focus:ring-green-400 hover:bg-slate-700 transition-colors"
                     />
                   </div>
+                </div>
 
-                  {/* Timer */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                {/* Timer Info Display */}
+                <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-600/50">
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2">
                       <Timer className="w-4 h-4 text-orange-400" />
-                      Timer (seconds)
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      placeholder="30"
-                      value={assignment?.timerDuration ?? 60}
-                      onChange={(e) => handleTimerChange(index, e.target.value)}
-                      className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-orange-400 focus:ring-orange-400 hover:bg-slate-700 transition-colors"
-                    />
-                  </div>
-
-                  {/* ✅ Delay Duration */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                      <Clock className="w-4 h-4 text-purple-400" />
-                      Delay (seconds)
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={10}
-                      placeholder="3"
-                      value={assignment?.delayDuration ?? 30}
-                      onChange={(e) => handleDelayDurationChange(index, e.target.value)}
-                      className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-purple-400 focus:ring-purple-400 hover:bg-slate-700 transition-colors"
-                    />
-                  </div>
-
-                  {/* ✅ Delay Text */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                      <MessageSquare className="w-4 h-4 text-pink-400" />
-                      Delay Message
-                    </label>
-                    <Input
-                      value={assignment?.delayText ?? 'Restarting Video'}
-                      onChange={(e) => handleDelayTextChange(index, e.target.value)}
-                      placeholder="Restarting Video"
-                      className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-pink-400 focus:ring-pink-400 hover:bg-slate-700 transition-colors"
-                    />
+                      <span className="text-slate-300">
+                        Timer: <span className="text-orange-400 font-medium">
+                          {index === 1 ? `${globalTimers.timer2}s (Timer 2)` : `${globalTimers.timer1}s (Timer 1)`}
+                        </span>
+                      </span>
+                    </div>
+                    {index !== 1 && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-400" />
+                          <span className="text-slate-300">
+                            Delay: <span className="text-blue-400 font-medium">{globalTimers.delay1}s</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-green-400" />
+                          <span className="text-slate-300">
+                            Message: <span className="text-green-400 font-medium">"{globalTimers.delayText1}"</span>
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {index === 1 && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-purple-400" />
+                        <span className="text-slate-300">
+                          Delay: <span className="text-purple-400 font-medium">0s (No delay)</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
