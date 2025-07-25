@@ -36,6 +36,15 @@ const ControlPanel = ({
     setAssignments(updated);
   };
 
+  // Function to get display name for video
+  const getVideoDisplayName = (video) => {
+    if (typeof video === 'string') {
+      return video.split('/').pop(); // Return just the filename after last slash
+    }
+    const videoPath = video?.name || video?.url || 'Unknown video';
+    return videoPath.split('/').pop(); // Return just the filename after last slash
+  };
+
   // Handle global timer changes
   const handleGlobalTimer1Change = (value) => {
     const timer1Value = parseInt(value || '60');
@@ -280,7 +289,9 @@ const ControlPanel = ({
                       }
                     >
                       <SelectTrigger className="bg-slate-700/50 border-slate-500 text-slate-200 focus:border-indigo-400 focus:ring-indigo-400 hover:bg-slate-700 transition-colors">
-                        <SelectValue placeholder="Select video" />
+                        <SelectValue placeholder="Select video">
+                          {assignment?.url && assignment.url !== 'none' ? getVideoDisplayName(assignment.url) : 'Select video'}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="bg-slate-700 border-slate-600 shadow-lg">
                         <SelectItem value="none" className="text-slate-300 hover:bg-slate-600 focus:bg-slate-600">
@@ -295,7 +306,7 @@ const ControlPanel = ({
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                               <span className="text-sm">
-                                {typeof video === 'string' ? video.split('/').pop() : video?.name || video?.url?.split('/').pop()}
+                                {getVideoDisplayName(video)}
                               </span>
                             </div>
                           </SelectItem>
