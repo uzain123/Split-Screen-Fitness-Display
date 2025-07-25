@@ -266,8 +266,8 @@ const VideoPlayer = forwardRef(({
 
           {/* Timer Display - Only Timer 2 on middle top video */}
           {isFullscreen && src && isMiddleTop && timer2TimeLeft !== undefined && (
-            <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20">
-              <div className="bg-black/10 backdrop-blur-sm rounded-xl p-2 border border-white/30 shadow-sm">
+            <div className="absolute top-1 right-1 z-20">
+              <div className="bg-black/10 backdrop-blur-sm rounded-lg p-1 border border-white/30 shadow-sm">
                 <div className="scale-100 transform">
                   <CircularTimerOverlay
                     timeLeft={timer2TimeLeft}
@@ -275,13 +275,12 @@ const VideoPlayer = forwardRef(({
                     isActive={timer2Active}
                     isPlaying={isPlaying}
                     label="Timer 2"
-                    size="md"
+                    size="sm"
                   />
                 </div>
               </div>
             </div>
           )}
-
           {/* Global Timer Overlay - Shows when global timer is low */}
           {isFullscreen && globalTimer3 <= 30 && globalTimer3 > 0 && (
             <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-10">
