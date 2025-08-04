@@ -5,10 +5,10 @@ import VideoPlayer from './VideoPlayer';
 import GlobalControls from './GlobalControls';
 import Image from 'next/image';
 
-// Circular Timer Component
+// TV-Optimized Circular Timer Component
 const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDelay = false, delayText = "" }) => {
   const percentage = (timeLeft / totalTime) * 100;
-  const circumference = 2 * Math.PI * 45; // radius = 45
+  const circumference = 2 * Math.PI * 60; // Increased radius for TV
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   // Determine color based on time remaining and state
@@ -25,25 +25,25 @@ const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDela
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative w-20 h-20">
+    <div className="flex items-center gap-4">
+      <div className="relative w-32 h-32"> {/* Increased from 20x20 to 32x32 for TV */}
         {/* Background circle */}
-        <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 100 100">
+        <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 140 140">
           <circle
-            cx="50"
-            cy="50"
-            r="45"
+            cx="70"
+            cy="70"
+            r="60"
             stroke="rgba(255,255,255,0.1)"
-            strokeWidth="6"
+            strokeWidth="8"
             fill="transparent"
           />
           {/* Progress circle */}
           <circle
-            cx="50"
-            cy="50"
-            r="45"
+            cx="70"
+            cy="70"
+            r="60"
             stroke={getColor()}
-            strokeWidth="6"
+            strokeWidth="8"
             fill="transparent"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -53,12 +53,23 @@ const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDela
         </svg>
         {/* Timer number in center */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-white text-lg font-mono font-bold">
+          <span className="text-white text-2xl font-mono font-bold"> {/* Increased from text-lg to text-2xl */}
             {formatTime(timeLeft)}
           </span>
         </div>
       </div>
-
+      {/* Timer Label */}
+      <div className="flex flex-col">
+        <div className="text-white text-xl font-bold"> {/* Increased text size */}
+          {label}
+        </div>
+        <div className="text-gray-300 text-lg"> {/* Increased text size */}
+          {inDelay 
+            ? delayText 
+            : `${isActive && isPlaying ? 'Active' : 'Paused'}`
+          }
+        </div>
+      </div>
     </div>
   );
 };
@@ -70,9 +81,9 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
   const [videosReady, setVideosReady] = useState(Array(assignments.length).fill(false));
   const videoRefs = useRef([]);
   const cursorTimeoutRef = useRef();
-  // Add this useEffect in FullscreenView component
+  
+  // Auto-start timers when entering fullscreen and videos are playing
   useEffect(() => {
-    // Auto-start timers when entering fullscreen and videos are playing
     if (isAllPlaying) {
       setGlobalTimerActive(true);
       setTimer1Active(true);
@@ -344,23 +355,25 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden flex flex-col">
-      {/* Loading Overlay */}
+      {/* TV-Optimized Loading Overlay */}
       {!allVideosReady && (
         <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
-          <div className="text-white text-lg mb-4">⚙️ Loading videos...</div>
-          <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div className="text-white text-4xl mb-8 font-bold">⚙️ Loading videos...</div>
+          <div className="w-96 h-6 bg-gray-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${loadingProgress}%` }}
             ></div>
           </div>
+          <div className="text-white text-2xl mt-4">{Math.round(loadingProgress)}%</div>
         </div>
       )}
 
-      <div className="relative h-28 bg-black border-b border-gray-800 flex items-center justify-between px-12">
+      {/* TV-Optimized Header with increased height and spacing */}
+      <div className="relative h-40 bg-black border-b border-gray-800 flex items-center justify-between px-16"> {/* Increased height from h-28 to h-40 and padding */}
         {/* Left - Timer 1 Display */}
-        <div className="flex-1 flex items-center pl-4 ">
-          <div className="scale-125 transform">
+        <div className="flex-1 flex items-center pl-6">
+          <div className="scale-110 transform"> {/* Slightly increased scale */}
             <CircularTimer
               timeLeft={timer1InDelay ? timer1DelayTimeLeft : timer1TimeLeft}
               totalTime={timer1InDelay ? timer1Values.delay : timer1Values.duration}
@@ -373,21 +386,21 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
           </div>
         </div>
 
-        {/* Center - Logo */}
-        <div className="flex-1 flex justify-center items-center px-8">
+        {/* Center - Logo with increased size */}
+        <div className="flex-1 flex justify-center items-center px-12">
           <Image
             src="/logo.jpeg"
             alt="Logo"
-            width={160}
-            height={80}
+            width={200} // Increased from 160
+            height={100} // Increased from 80
             className="object-contain"
             priority
           />
         </div>
 
         {/* Right - Global Timer 3 and Exit */}
-        <div className="flex-1 flex items-center justify-end gap-6 pr-4">
-          <div className="scale-125 transform">
+        <div className="flex-1 flex items-center justify-end gap-8 pr-6"> {/* Increased gap */}
+          <div className="scale-110 transform"> {/* Slightly increased scale */}
             <CircularTimer
               timeLeft={globalTimeLeft}
               totalTime={globalTimer3 || 2700}
@@ -400,20 +413,20 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
             variant="secondary"
             size="lg"
             onClick={onClose}
-            className="h-12 w-12 p-0 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500/60 transition-all duration-200 ml-4"
+            className="h-16 w-16 p-0 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500/60 transition-all duration-200 ml-6" // Increased size
           >
-            <X className="h-6 w-6 text-red-400" />
+            <X className="h-8 w-8 text-red-400" /> {/* Increased icon size */}
           </Button>
         </div>
       </div>
 
-      {/* Video grid */}
-      <div className="flex-1 p-2 grid gap-1"
+      {/* Video grid with adjusted height calculation */}
+      <div className="flex-1 p-3 grid gap-2" // Increased padding and gap
         style={{
           gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(assignments.length))}, 1fr)`,
           gridTemplateRows: `repeat(${Math.ceil(assignments.length / Math.ceil(Math.sqrt(assignments.length)))}, 1fr)`,
           display: 'grid',
-          height: 'calc(100% - 5rem)', // Account for header height
+          height: 'calc(100% - 10rem)', // Adjusted for new header height
           minHeight: 0,
         }}>
         {assignments.map((assignment, index) => (
@@ -427,7 +440,7 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
               globalTimerActive={globalTimerActive}
               timer1TimeLeft={timer1TimeLeft}
               timer1Active={timer1Active}
-              timer2TimeLeft={timer2TimeLeft} // Pass Timer 2 to VideoPlayer
+              timer2TimeLeft={timer2TimeLeft}
               timer2Active={timer2Active}
               onReadyToPlay={() => handleVideoReady(index)}
             />
@@ -435,19 +448,19 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
         ))}
       </div>
 
-      {/* Global Controls - Floating at bottom center */}
-      <div className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="flex items-center gap-3 bg-black/80 backdrop-blur-sm px-6 py-3 rounded-full border border-gray-600/50">
+      {/* TV-Optimized Global Controls - Shorter and at bottom */}
+      <div className={`absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="flex items-center gap-4 bg-black/80 backdrop-blur-sm px-6 py-3 rounded-full border border-gray-600/50"> {/* Reduced padding */}
           <Button
             variant="secondary"
             size="lg"
             onClick={handlePlayPauseAll}
-            className="h-12 w-12 p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200"
+            className="h-12 w-12 p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200" // Reduced size
           >
             {isAllPlaying ? (
-              <div className="w-3 h-3 bg-white rounded-sm"></div>
+              <div className="w-4 h-4 bg-white rounded-sm"></div> // Reduced pause icon size
             ) : (
-              <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-1"></div>
+              <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-1"></div> // Reduced play icon size
             )}
           </Button>
 
@@ -455,20 +468,20 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
             variant="secondary"
             size="lg"
             onClick={handleMuteUnmuteAll}
-            className="h-12 w-12 p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200"
+            className="h-12 w-12 p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-200" // Reduced size
           >
             {isAllMuted ? (
-              <div className="text-white text-lg">🔇</div>
+              <div className="text-white text-lg">🔇</div> // Reduced emoji size
             ) : (
-              <div className="text-white text-lg">🔊</div>
+              <div className="text-white text-lg">🔊</div> // Reduced emoji size
             )}
           </Button>
         </div>
       </div>
 
-      {/* Instructions overlay */}
-      <div className={`absolute bottom-4 left-6 text-white transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <p className="text-sm text-gray-300">Press ESC to exit • Move mouse to show controls</p>
+      {/* TV-Optimized Instructions overlay with larger text */}
+      <div className={`absolute bottom-6 left-8 text-white transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        <p className="text-lg text-gray-300 font-medium">Press ESC to exit • Move mouse to show controls</p> {/* Increased text size */}
       </div>
     </div>
   );
