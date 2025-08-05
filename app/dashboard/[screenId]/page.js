@@ -30,18 +30,55 @@ export default function Home() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
 
-  // Function to fetch videos from S3
+  // Function to fetch videos from S3 with better error handling
   const fetchVideos = async () => {
     try {
+      console.log('🔄 Fetching videos from API...');
       const videosRes = await fetch('/api/videos');
-      const videoData = await videosRes.json();
       
-      // The API returns an array of URLs, so we set them directly
-      setVideos(videoData || []);
-      return videoData || [];
+      if (!videosRes.ok) {
+        console.error(`❌ API Error: ${videosRes.status} ${videosRes.statusText}`);
+        setApiError(`Failed to fetch videos: ${videosRes.status} ${videosRes.statusText}`);
+        return [];
+      }
+
+      const videoData = await videosRes.json();
+      console.log('✅ API Response:', videoData);
+      
+      // Ensure we always return an array
+      if (!videoData) {
+        console.warn('⚠️ API returned null/undefined, using empty array');
+        return [];
+      }
+      
+      if (!Array.isArray(videoData)) {
+        console.warn('⚠️ API returned non-array data:', typeof videoData, videoData);
+        // If it's an object with a videos property, use that
+        if (videoData.videos && Array.isArray(videoData.videos)) {
+          console.log('✅ Found videos array in response.videos');
+          return videoData.videos;
+        }
+        // If it's an object with URL values, convert to array
+        if (typeof videoData === 'object') {
+          const urls = Object.values(videoData).filter(item => 
+            typeof item === 'string' && (item.startsWith('http') || item.startsWith('/'))
+          );
+          if (urls.length > 0) {
+            console.log('✅ Extracted URLs from object:', urls);
+            return urls;
+          }
+        }
+        console.warn('⚠️ Could not extract video URLs, returning empty array');
+        return [];
+      }
+      
+      console.log(`✅ Successfully loaded ${videoData.length} videos`);
+      return videoData;
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      console.error('❌ Error fetching videos:', error);
+      setApiError(`Network error: ${error.message}`);
       return [];
     }
   };
@@ -49,30 +86,53 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('🚀 Starting data fetch for screenId:', screenId);
+        
+        // Fetch config and videos simultaneously
         const [configRes, videoData] = await Promise.all([
-          fetch(`/api/configs/${screenId}`),
-          fetchVideos() // Use the new fetchVideos function
+          fetch(`/api/configs/${screenId}`).catch(err => {
+            console.error('❌ Config fetch error:', err);
+            return { ok: false, json: () => Promise.resolve({}) };
+          }),
+          fetchVideos()
         ]);
 
-        const configData = await configRes.json();
+        // Handle config response
+        let configData = {};
+        if (configRes.ok) {
+          configData = await configRes.json();
+          console.log('✅ Config loaded:', configData);
+        } else {
+          console.warn('⚠️ Config fetch failed, using defaults');
+        }
+
+        // Set videos with safety check
+        if (Array.isArray(videoData) && videoData.length > 0) {
+          setVideos(videoData);
+          console.log('✅ Videos set successfully:', videoData.length);
+        } else {
+          setVideos([]);
+          console.warn('⚠️ No videos available, set empty array');
+        }
 
         // Load assignments from config
-        setAssignments(
-          Array(6)
-            .fill(null)
-            .map((_, i) => {
-              const item = configData?.[i];
-              if (!item || !item.url) return null;
+        const newAssignments = Array(6)
+          .fill(null)
+          .map((_, i) => {
+            const item = configData?.[i];
+            if (!item || !item.url) return null;
 
-              return {
-                url: item.url,
-                name: item.name || item.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
-                timerDuration: item.timerDuration || 60,
-                delayDuration: item.delayDuration || (i === 1 ? 0 : 30), // Middle top (index 1) has 0 delay
-                delayText: item.delayText || 'Move to the next station',
-              };
-            })
-        );
+            return {
+              url: item.url,
+              name: item.name || item.url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
+              timerDuration: item.timerDuration || 60,
+              delayDuration: item.delayDuration || (i === 1 ? 0 : 30), // Middle top (index 1) has 0 delay
+              delayText: item.delayText || 'Move to the next station',
+            };
+          });
+        
+        setAssignments(newAssignments);
+        console.log('✅ Assignments loaded:', newAssignments.filter(Boolean).length, 'active');
 
         // Extract global timer values from the first valid assignment (if exists)
         const firstAssignment = configData?.find(item => item && item.url);
@@ -102,9 +162,11 @@ export default function Home() {
         }
 
       } catch (err) {
-        console.error('Error loading data:', err);
+        console.error('❌ Error in fetchData:', err);
+        setApiError(`Failed to load data: ${err.message}`);
       } finally {
         setIsLoading(false);
+        console.log('✅ Data fetch complete');
       }
     };
 
@@ -237,10 +299,11 @@ export default function Home() {
     setIsAllMuted(!isAllMuted);
   };
 
-  // Updated random assign with proper timer application
+  // Updated random assign with proper timer application and safety checks
   const handleRandomAssign = () => {
-    if (videos.length === 0) {
-      console.warn('No videos available for random assignment');
+    if (!Array.isArray(videos) || videos.length === 0) {
+      console.warn('⚠️ No videos available for random assignment');
+      setApiError('No videos available for random assignment. Please check your video API.');
       return;
     }
 
@@ -287,6 +350,7 @@ export default function Home() {
     });
 
     setAssignments(newAssignments);
+    console.log('✅ Random assignment completed');
   };
 
   if (isFullscreen) {
@@ -295,6 +359,7 @@ export default function Home() {
         assignments={assignments}
         onClose={exitFullscreen}
         globalTimer3={globalTimers.timer3} // Pass Timer 3 to fullscreen view
+        globalTimers={globalTimers} // Pass all global timers
       />
     );
   }
@@ -305,6 +370,11 @@ export default function Home() {
         <div className="text-center space-y-4">
           <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
           <p className="text-lg font-medium">Loading your display...</p>
+          {apiError && (
+            <div className="mt-4 p-4 bg-red-900/50 border border-red-500 rounded-lg">
+              <p className="text-red-200 text-sm">⚠️ {apiError}</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -312,6 +382,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* API Error Banner */}
+      {apiError && (
+        <div className="bg-red-900/50 border-b border-red-500 p-4">
+          <div className="container mx-auto px-4">
+            <p className="text-red-200 text-sm">⚠️ {apiError}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
@@ -320,7 +399,10 @@ export default function Home() {
               <Monitor className="h-8 w-8 text-blue-500" />
               <div>
                 <h1 className="text-2xl font-bold">Multi-Video Stream Dashboard</h1>
-                <p className="text-sm text-gray-400">Professional video management for large displays</p>
+                <p className="text-sm text-gray-400">
+                  Professional video management for large displays 
+                  {videos.length > 0 && ` • ${videos.length} videos available`}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
