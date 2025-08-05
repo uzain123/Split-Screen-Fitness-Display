@@ -10,7 +10,6 @@ import FullscreenView from '../../../components/FullscreenView';
 import GlobalControls from '../../../components/GlobalControls';
 import { useParams } from 'next/navigation';
 
-
 export default function Home() {
   const { screenId } = useParams();
   const [videos, setVideos] = useState([]);
@@ -32,16 +31,30 @@ export default function Home() {
 
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to fetch videos from S3
+  const fetchVideos = async () => {
+    try {
+      const videosRes = await fetch('/api/videos');
+      const videoData = await videosRes.json();
+      
+      // The API returns an array of URLs, so we set them directly
+      setVideos(videoData || []);
+      return videoData || [];
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+      return [];
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [configRes, videosRes] = await Promise.all([
+        const [configRes, videoData] = await Promise.all([
           fetch(`/api/configs/${screenId}`),
-          fetch('/api/videos')
+          fetchVideos() // Use the new fetchVideos function
         ]);
 
         const configData = await configRes.json();
-        const videoData = await videosRes.json();
 
         // Load assignments from config
         setAssignments(
@@ -60,19 +73,6 @@ export default function Home() {
               };
             })
         );
-
-        // Set up videos from folder
-        setVideos((videoData || []).map(v => {
-          const url = typeof v === 'string' ? v : v?.url;
-          if (!url) return null;
-          return {
-            url,
-            name: url.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed',
-            timerDuration: 60,
-            delayDuration: 30,
-            delayText: 'Move to the next station',
-          };
-        }).filter(Boolean));
 
         // Extract global timer values from the first valid assignment (if exists)
         const firstAssignment = configData?.find(item => item && item.url);
@@ -109,7 +109,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, []);
+  }, [screenId]);
 
   // Save config to API with proper timer distribution
   useEffect(() => {
@@ -140,11 +140,18 @@ export default function Home() {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [assignments]);
+  }, [assignments, screenId]);
 
   // Handle video assignment with proper timer application
-  const handleAssignVideo = (playerIndex, video) => {
+  const handleAssignVideo = (playerIndex, videoUrl) => {
     const newAssignments = [...assignments];
+    
+    if (!videoUrl) {
+      // Clear assignment
+      newAssignments[playerIndex] = null;
+      setAssignments(newAssignments);
+      return;
+    }
     
     // Apply appropriate timer based on player index
     let timerDuration, delayDuration, delayText;
@@ -161,9 +168,12 @@ export default function Home() {
       delayText = globalTimers.delayText1;
     }
 
+    // Extract video name from URL
+    const videoName = videoUrl.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed';
+
     newAssignments[playerIndex] = {
-      url: video.url,
-      name: video.name,
+      url: videoUrl,
+      name: videoName,
       timerDuration: timerDuration,
       delayDuration: delayDuration,
       delayText: delayText,
@@ -176,30 +186,31 @@ export default function Home() {
     setAssignments(Array(assignments.length).fill(null));
   };
 
-const enterFullscreen = () => {
-  // Instead of pausing, start playing all videos when entering fullscreen
-  videoRefs.current.forEach(ref => {
-    if (ref) {
-      ref.play(); // Start playing instead of pausing
-    }
-  });
-  setIsAllPlaying(true); // Set to playing state
-  setIsAllMuted(false); // Optionally unmute as well
-  setIsFullscreen(true);
-};
+  const enterFullscreen = () => {
+    // Instead of pausing, start playing all videos when entering fullscreen
+    videoRefs.current.forEach(ref => {
+      if (ref) {
+        ref.play(); // Start playing instead of pausing
+      }
+    });
+    setIsAllPlaying(true); // Set to playing state
+    setIsAllMuted(false); // Optionally unmute as well
+    setIsFullscreen(true);
+  };
 
-// Keep exitFullscreen as is, or update similarly if you want videos to keep playing:
-const exitFullscreen = () => {
-  // Reset all video states when exiting fullscreen
-  videoRefs.current.forEach(ref => {
-    if (ref) {
-      ref.play();
-    }
-  });
-  setIsAllPlaying(true);
-  setIsAllMuted(false);
-  setIsFullscreen(false);
-};
+  // Keep exitFullscreen as is, or update similarly if you want videos to keep playing:
+  const exitFullscreen = () => {
+    // Reset all video states when exiting fullscreen
+    videoRefs.current.forEach(ref => {
+      if (ref) {
+        ref.play();
+      }
+    });
+    setIsAllPlaying(true);
+    setIsAllMuted(false);
+    setIsFullscreen(false);
+  };
+
   const handlePlayPauseAll = () => {
     videoRefs.current.forEach(ref => {
       if (ref) {
@@ -238,12 +249,12 @@ const exitFullscreen = () => {
     if (videos.length >= assignments.length) {
       // Shuffle and pick unique videos for each slot
       const shuffled = [...videos].sort(() => 0.5 - Math.random());
-      shuffledVideoUrls = shuffled.slice(0, assignments.length).map(v => v.url);
+      shuffledVideoUrls = shuffled.slice(0, assignments.length);
     } else {
       // Less videos than slots, allow repeats but still shuffle
       for (let i = 0; i < assignments.length; i++) {
         const randomVideo = videos[Math.floor(Math.random() * videos.length)];
-        shuffledVideoUrls.push(randomVideo.url);
+        shuffledVideoUrls.push(randomVideo);
       }
     }
 
@@ -263,21 +274,12 @@ const exitFullscreen = () => {
         delayText = globalTimers.delayText1;
       }
 
-      // If there's no current assignment, create a new one with proper timer values
-      if (!currentAssignment) {
-        return {
-          url: shuffledVideoUrls[index],
-          name: videos.find(v => v.url === shuffledVideoUrls[index])?.name || 'Unnamed',
-          timerDuration: timerDuration,
-          delayDuration: delayDuration,
-          delayText: delayText,
-        };
-      }
+      const videoUrl = shuffledVideoUrls[index];
+      const videoName = videoUrl.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'Unnamed';
 
-      // If there's an existing assignment, preserve name but apply global timer settings
       return {
-        ...currentAssignment,
-        url: shuffledVideoUrls[index],
+        url: videoUrl,
+        name: currentAssignment?.name || videoName,
         timerDuration: timerDuration,
         delayDuration: delayDuration,
         delayText: delayText,
@@ -379,6 +381,7 @@ const exitFullscreen = () => {
           <div className="space-y-6">
             <ControlPanel
               videos={videos}
+              setVideos={setVideos} // Add this line - this was missing!
               assignments={assignments}
               onAssignVideo={handleAssignVideo}
               setAssignments={setAssignments}

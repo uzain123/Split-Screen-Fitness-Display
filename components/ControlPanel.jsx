@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Button } from './ui/button';
-import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info, Clock, MessageSquare, Globe } from 'lucide-react';
+import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info, Clock, MessageSquare, Globe, Upload, Trash2, Edit2, X, Check, FolderOpen } from 'lucide-react';
 import { Input } from './ui/input';
 
 const ControlPanel = ({
@@ -12,8 +12,14 @@ const ControlPanel = ({
   setAssignments,
   onClearAll,
   globalTimers,
-  setGlobalTimers
+  setGlobalTimers,
+  setVideos // Add this prop to update the videos list
 }) => {
+  const [uploading, setUploading] = useState(false);
+  const [renaming, setRenaming] = useState(null); // Track which video is being renamed
+  const [newName, setNewName] = useState('');
+  const [deleting, setDeleting] = useState(null); // Track which video is being deleted
+  const fileInputRef = useRef(null);
 
   const handleAddScreen = () => {
     if (assignments.length < 6) {
@@ -106,6 +112,170 @@ const ControlPanel = ({
     setAssignments(updated);
   };
 
+  // Video management functions
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check if file is MP4
+    if (!file.type.includes('mp4') && !file.name.toLowerCase().endsWith('.mp4')) {
+      alert('❌ Only MP4 files are allowed. Please select a .mp4 video file.');
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Check file size (optional - you can set a limit, e.g., 500MB)
+    const maxSize = 500 * 1024 * 1024; // 500MB in bytes
+    if (file.size > maxSize) {
+      alert('❌ File is too large. Please select a video file smaller than 500MB.');
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/videos/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        // Refresh the videos list from S3
+        const videosRes = await fetch('/api/videos');
+        const videoData = await videosRes.json();
+        setVideos(videoData || []);
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        
+        // Show success message
+        alert('✅ Video uploaded successfully!');
+      } else {
+        const error = await response.json();
+        console.error('Upload failed:', error);
+        alert('❌ Upload failed: ' + error.error);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('❌ Upload failed: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteVideo = async (videoUrl) => {
+    const key = getVideoDisplayName(videoUrl);
+    
+    setDeleting(key);
+    try {
+      const response = await fetch('/api/videos/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ key }),
+      });
+
+      if (response.ok) {
+        // Refresh the videos list from S3
+        const videosRes = await fetch('/api/videos');
+        const videoData = await videosRes.json();
+        setVideos(videoData || []);
+        
+        // Clear any assignments using this video
+        const updated = [...assignments];
+        updated.forEach((assignment, index) => {
+          if (assignment && assignment.url === videoUrl) {
+            updated[index] = null;
+          }
+        });
+        setAssignments(updated);
+      } else {
+        const error = await response.json();
+        console.error('Delete failed:', error);
+        alert('Delete failed: ' + error.error);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Delete failed: ' + error.message);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleRenameVideo = async (videoUrl, newFileName) => {
+    const oldKey = getVideoDisplayName(videoUrl);
+    
+    try {
+      const response = await fetch('/api/videos/rename', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          oldKey, 
+          newKey: newFileName 
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh the videos list from S3
+        const videosRes = await fetch('/api/videos');
+        const videoData = await videosRes.json();
+        setVideos(videoData || []);
+        
+        // Update any assignments using this video
+        const newVideoUrl = videoUrl.replace(oldKey, newFileName);
+        const updated = [...assignments];
+        updated.forEach((assignment, index) => {
+          if (assignment && assignment.url === videoUrl) {
+            updated[index] = { ...assignment, url: newVideoUrl };
+          }
+        });
+        setAssignments(updated);
+        
+        setRenaming(null);
+        setNewName('');
+      } else {
+        const error = await response.json();
+        console.error('Rename failed:', error);
+        alert('Rename failed: ' + error.error);
+      }
+    } catch (error) {
+      console.error('Rename error:', error);
+      alert('Rename failed: ' + error.message);
+    }
+  };
+
+  const startRename = (videoUrl) => {
+    setRenaming(videoUrl);
+    setNewName(getVideoDisplayName(videoUrl));
+  };
+
+  const cancelRename = () => {
+    setRenaming(null);
+    setNewName('');
+  };
+
+  const submitRename = (videoUrl) => {
+    if (newName.trim() && newName !== getVideoDisplayName(videoUrl)) {
+      handleRenameVideo(videoUrl, newName.trim());
+    } else {
+      cancelRename();
+    }
+  };
+
   return (
     <Card className="shadow-xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900">
       <CardHeader className="bg-gradient-to-r from-slate-700 to-slate-800 text-white border-b border-slate-600">
@@ -125,6 +295,122 @@ const ControlPanel = ({
             <span className="text-sm font-medium">
               Global timer settings will apply to all videos. Timer 1 affects all displays except middle top, Timer 2 affects only middle top, Timer 3 is global pause timer.
             </span>
+          </div>
+        </div>
+
+        {/* Video Management Section */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-6 bg-gradient-to-b from-purple-400 to-indigo-400 rounded-full"></div>
+            <h3 className="text-lg font-semibold text-slate-200">Video Management</h3>
+          </div>
+
+          <div className="p-5 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border border-purple-700/50 rounded-xl">
+            {/* Upload Section */}
+            <div className="mb-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".mp4,video/mp4"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0"
+                >
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full w-4 h-4 border-2 border-white border-t-transparent"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Upload MP4 Video
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-slate-400">
+                  📹 Only MP4 files are supported (Max: 500MB)
+                </p>
+              </div>
+            </div>
+
+            {/* Video List */}
+            {videos.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4" />
+                  Available Videos ({videos.length})
+                </h4>
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {videos.map((video, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-600/50">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      
+                      {renaming === video ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <Input
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && submitRename(video)}
+                            className="flex-1 h-8 bg-slate-700/50 border-slate-500 text-slate-200 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => submitRename(video)}
+                            className="h-8 px-2 bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <Check className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={cancelRename}
+                            variant="outline"
+                            className="h-8 px-2 border-slate-500 text-slate-300 hover:bg-slate-700"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm text-slate-200 truncate">
+                            {getVideoDisplayName(video)}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => startRename(video)}
+                              variant="ghost"
+                              className="h-8 px-2 text-slate-400 hover:text-blue-400 hover:bg-blue-900/20"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleDeleteVideo(video)}
+                              disabled={deleting === getVideoDisplayName(video)}
+                              variant="ghost"
+                              className="h-8 px-2 text-slate-400 hover:text-red-400 hover:bg-red-900/20"
+                            >
+                              {deleting === getVideoDisplayName(video) ? (
+                                <div className="animate-spin rounded-full w-3 h-3 border-2 border-red-400 border-t-transparent"></div>
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

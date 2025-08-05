@@ -74,11 +74,122 @@ const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDela
   );
 };
 
+// Individual Video Loading Component
+const VideoLoadingCard = ({ assignment, index, isLoaded, hasError }) => {
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStage, setLoadingStage] = useState('Connecting...');
+  const progressIntervalRef = useRef(null);
+
+  useEffect(() => {
+    if (isLoaded || hasError) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      setLoadingProgress(100);
+      setLoadingStage(hasError ? 'Error' : 'Ready');
+      return;
+    }
+
+    // Simulate realistic loading stages
+    let progress = 0;
+    const stages = [
+      { progress: 20, stage: 'Connecting...' },
+      { progress: 40, stage: 'Buffering...' },
+      { progress: 70, stage: 'Loading metadata...' },
+      { progress: 90, stage: 'Preparing...' },
+    ];
+    
+    let currentStageIndex = 0;
+    setLoadingProgress(0);
+    setLoadingStage('Connecting...');
+
+    progressIntervalRef.current = setInterval(() => {
+      progress += Math.random() * 8 + 2; // Random progress increment for realism
+      
+      // Update stage based on progress
+      const currentStage = stages.find(s => progress >= s.progress - 10 && progress < s.progress + 10);
+      if (currentStage && currentStageIndex < stages.length - 1) {
+        setLoadingStage(currentStage.stage);
+        currentStageIndex++;
+      }
+      
+      if (progress >= 95) {
+        progress = 95; // Cap at 95% until actually loaded
+        setLoadingStage('Almost ready...');
+      }
+      
+      setLoadingProgress(progress);
+    }, 150);
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, [isLoaded, hasError]);
+
+  const getStatusColor = () => {
+    if (hasError) return 'bg-red-500';
+    if (isLoaded) return 'bg-green-500';
+    return 'bg-blue-500';
+  };
+
+  const getStatusText = () => {
+    if (hasError) return 'Failed to load';
+    if (isLoaded) return 'Ready to play';
+    return loadingStage;
+  };
+
+  return (
+    <div className="bg-gray-800/90 backdrop-blur-sm rounded-lg p-6 border border-gray-600/50 min-h-[200px] flex flex-col justify-between">
+      {/* Video Info */}
+      <div className="flex-1">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="text-2xl">📺</div>
+          <div>
+            <h3 className="text-white text-xl font-bold">
+              {assignment?.name || `Player ${index + 1}`}
+            </h3>
+            <p className="text-gray-300 text-sm">
+              Position {index + 1}
+            </p>
+          </div>
+        </div>
+
+        {/* Status indicator */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className={`w-3 h-3 rounded-full ${getStatusColor()} ${!isLoaded && !hasError ? 'animate-pulse' : ''}`}></div>
+          <span className="text-gray-300 text-sm">
+            {getStatusText()}
+          </span>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mt-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs text-gray-400">Loading Progress</span>
+          <span className="text-xs text-gray-400">{Math.round(loadingProgress)}%</span>
+        </div>
+        <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+          <div
+            className={`h-full transition-all duration-300 ${
+              hasError ? 'bg-red-500' : isLoaded ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: `${loadingProgress}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) => {
   const [showControls, setShowControls] = useState(true);
   const [isAllPlaying, setIsAllPlaying] = useState(false);
   const [isAllMuted, setIsAllMuted] = useState(false);
   const [videosReady, setVideosReady] = useState(Array(assignments.length).fill(false));
+  const [videoErrors, setVideoErrors] = useState(Array(assignments.length).fill(false));
   const videoRefs = useRef([]);
   const cursorTimeoutRef = useRef();
   
@@ -135,11 +246,18 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
   const [timer2Active, setTimer2Active] = useState(false);
   const timer2Ref = useRef(null);
 
-  const allVideosReady = assignments.every((video, i) => !video || videosReady[i]);
-  const loadingProgress = (videosReady.filter(Boolean).length / assignments.length) * 100;
+  const allVideosReady = assignments.every((video, i) => !video || videosReady[i] || videoErrors[i]);
 
   const handleVideoReady = (index) => {
     setVideosReady((prev) => {
+      const updated = [...prev];
+      updated[index] = true;
+      return updated;
+    });
+  };
+
+  const handleVideoError = (index) => {
+    setVideoErrors((prev) => {
       const updated = [...prev];
       updated[index] = true;
       return updated;
@@ -355,17 +473,57 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden flex flex-col">
-      {/* TV-Optimized Loading Overlay */}
+      {/* TV-Optimized Individual Video Loading Overlay */}
       {!allVideosReady && (
-        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
-          <div className="text-white text-4xl mb-8 font-bold">⚙️ Loading videos...</div>
-          <div className="w-96 h-6 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-500 transition-all duration-300"
-              style={{ width: `${loadingProgress}%` }}
-            ></div>
+        <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-sm">
+          <div className="h-full flex flex-col">
+            {/* Header */}
+            <div className="flex-shrink-0 text-center py-8">
+              <div className="text-white text-4xl mb-4 font-bold">🚀 Preparing Your Videos</div>
+              <div className="text-gray-300 text-xl">Each video is loading independently...</div>
+            </div>
+            
+            {/* Individual Video Loading Cards */}
+            <div className="flex-1 overflow-y-auto px-8 pb-8">
+              <div className="grid gap-6 max-w-7xl mx-auto"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(3, assignments.length)}, 1fr)`,
+                  gridAutoRows: 'min-content'
+                }}>
+                {assignments.map((assignment, index) => (
+                  assignment && (
+                    <VideoLoadingCard
+                      key={index}
+                      assignment={assignment}
+                      index={index}
+                      isLoaded={videosReady[index]}
+                      hasError={videoErrors[index]}
+                    />
+                  )
+                ))}
+              </div>
+            </div>
+
+            {/* Progress Summary */}
+            <div className="flex-shrink-0 bg-gray-900/80 border-t border-gray-700 px-8 py-6">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-white text-lg font-semibold">Overall Progress</span>
+                  <span className="text-gray-300">
+                    {videosReady.filter(Boolean).length + videoErrors.filter(Boolean).length} of {assignments.filter(Boolean).length} ready
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
+                    style={{ 
+                      width: `${((videosReady.filter(Boolean).length + videoErrors.filter(Boolean).length) / assignments.filter(Boolean).length) * 100}%` 
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-white text-2xl mt-4">{Math.round(loadingProgress)}%</div>
         </div>
       )}
 
@@ -443,6 +601,7 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers }) =>
               timer2TimeLeft={timer2TimeLeft}
               timer2Active={timer2Active}
               onReadyToPlay={() => handleVideoReady(index)}
+              onVideoError={() => handleVideoError(index)}
             />
           </div>
         ))}
