@@ -31,7 +31,15 @@ export async function POST(req) {
 
     return NextResponse.json({ message: 'Rename successful' });
   } catch (err) {
-    console.error('Rename error:', err);
-    return NextResponse.json({ error: 'Rename failed' }, { status: 500 });
+    console.error('Rename error:', err); // This will show full error object
+
+    // Try to extract useful error info
+    return NextResponse.json(
+      {
+        error: err?.message || 'Rename failed',
+        details: err?.$metadata || null,
+      },
+      { status: 500 }
+    );
   }
 }

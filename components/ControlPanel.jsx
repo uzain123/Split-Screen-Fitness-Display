@@ -185,10 +185,41 @@ const ControlPanel = ({
 
 
   const handleDeleteVideo = async (videoUrl) => {
-    const key = getVideoDisplayName(videoUrl);
+    console.log('🟡 Starting delete for video:', videoUrl);
 
-    setDeleting(key);
+    // Extract the S3 key properly from the URL
+    let key;
+
+    if (typeof videoUrl === 'string') {
+      // If it's a full S3 URL, extract the key portion
+      if (videoUrl.includes('amazonaws.com') || videoUrl.includes('s3')) {
+        try {
+          const url = new URL(videoUrl);
+          key = decodeURIComponent(url.pathname.slice(1)); // Remove leading slash and decode
+          console.log('🟡 Extracted key from URL:', key);
+        } catch (err) {
+          console.error('❌ Failed to parse URL:', videoUrl);
+          alert('❌ Invalid video URL format');
+          return;
+        }
+      } else {
+        // If it's just a filename, assume it's in the videos/ folder
+        const fileName = videoUrl.split('/').pop();
+        key = `videos/${fileName}`;
+        console.log('🟡 Constructed key for filename:', key);
+      }
+    } else {
+      // Handle case where videoUrl is an object
+      const fileName = getVideoDisplayName(videoUrl);
+      key = `videos/${fileName}`;
+      console.log('🟡 Constructed key from object:', key);
+    }
+
+    setDeleting(videoUrl); // Set deleting to the video URL, not the key
+
     try {
+      console.log('🟡 Sending delete request with key:', key);
+
       const response = await fetch('/api/videos/delete', {
         method: 'POST',
         headers: {
@@ -197,35 +228,61 @@ const ControlPanel = ({
         body: JSON.stringify({ key }),
       });
 
-      if (response.ok) {
-        // Refresh the videos list from S3
-        const videosRes = await fetch('/api/videos');
-        const videoData = await videosRes.json();
-        setVideos(videoData || []);
+      console.log('🟡 Delete response status:', response.status);
 
-        // Clear any assignments using this video
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Delete successful:', result);
+
+        // Refresh the video list
+        const videosRes = await fetch('/api/videos');
+        if (videosRes.ok) {
+          const videoData = await videosRes.json();
+          setVideos(videoData || []);
+          console.log('✅ Video list refreshed');
+        }
+
+        // Remove video from assignments
         const updated = [...assignments];
         updated.forEach((assignment, index) => {
           if (assignment && assignment.url === videoUrl) {
             updated[index] = null;
+            console.log(`✅ Removed video from assignment ${index}`);
           }
         });
         setAssignments(updated);
+
+        alert('✅ Video deleted successfully!');
       } else {
         const error = await response.json();
-        console.error('Delete failed:', error);
-        alert('Delete failed: ' + error.error);
+        console.error('❌ Delete failed with status:', response.status, error);
+        alert(`❌ Delete failed: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Delete error:', error);
-      alert('Delete failed: ' + error.message);
+      console.error('❌ Delete request failed:', error);
+      alert(`❌ Delete failed: ${error.message}`);
     } finally {
       setDeleting(null);
     }
   };
 
+
+  const extractS3KeyFromUrl = (url) => {
+    try {
+      const urlObj = new URL(url);
+      return decodeURIComponent(urlObj.pathname.slice(1)); // removes leading slash
+    } catch (err) {
+      console.error('Invalid URL:', url);
+      return null;
+    }
+  };
+
   const handleRenameVideo = async (videoUrl, newFileName) => {
-    const oldKey = getVideoDisplayName(videoUrl);
+    const oldKey = extractS3KeyFromUrl(videoUrl);
+    if (!oldKey) {
+      alert('Failed to extract S3 key from URL.');
+      return;
+    }
 
     try {
       const response = await fetch('/api/videos/rename', {
@@ -240,12 +297,10 @@ const ControlPanel = ({
       });
 
       if (response.ok) {
-        // Refresh the videos list from S3
         const videosRes = await fetch('/api/videos');
         const videoData = await videosRes.json();
         setVideos(videoData || []);
 
-        // Update any assignments using this video
         const newVideoUrl = videoUrl.replace(oldKey, newFileName);
         const updated = [...assignments];
         updated.forEach((assignment, index) => {
@@ -267,6 +322,7 @@ const ControlPanel = ({
       alert('Rename failed: ' + error.message);
     }
   };
+
 
   const startRename = (videoUrl) => {
     setRenaming(videoUrl);
@@ -400,19 +456,21 @@ const ControlPanel = ({
                             >
                               <Edit2 className="w-3 h-3" />
                             </Button>
+
                             <Button
                               size="sm"
                               onClick={() => handleDeleteVideo(video)}
-                              disabled={deleting === getVideoDisplayName(video)}
+                              disabled={deleting === video}
                               variant="ghost"
-                              className="h-8 px-2 text-slate-400 hover:text-red-400 hover:bg-red-900/20"
+                              className="h-8 px-2 text-slate-400 hover:text-red-400 hover:bg-red-900/20 disabled:opacity-50"
                             >
-                              {deleting === getVideoDisplayName(video) ? (
+                              {deleting === video ? (
                                 <div className="animate-spin rounded-full w-3 h-3 border-2 border-red-400 border-t-transparent"></div>
                               ) : (
                                 <Trash2 className="w-3 h-3" />
                               )}
                             </Button>
+
                           </div>
                         </>
                       )}
