@@ -55,7 +55,7 @@ const ControlPanel = ({
   const handleGlobalTimer1Change = (value) => {
     const timer1Value = parseInt(value || '60');
     setGlobalTimers(prev => ({ ...prev, timer1: timer1Value }));
-    
+
     // Apply Timer 1 to all displays except index 1 (middle top)
     const updated = [...assignments];
     updated.forEach((assignment, index) => {
@@ -69,7 +69,7 @@ const ControlPanel = ({
   const handleGlobalTimer2Change = (value) => {
     const timer2Value = parseInt(value || '60');
     setGlobalTimers(prev => ({ ...prev, timer2: timer2Value }));
-    
+
     // Apply Timer 2 only to middle top display (index 1)
     const updated = [...assignments];
     if (updated[1]) {
@@ -87,7 +87,7 @@ const ControlPanel = ({
   const handleDelay1Change = (value) => {
     const delay1Value = parseInt(value || '30');
     setGlobalTimers(prev => ({ ...prev, delay1: delay1Value }));
-    
+
     // Apply Delay 1 to all displays except index 1 (middle top)
     const updated = [...assignments];
     updated.forEach((assignment, index) => {
@@ -101,7 +101,7 @@ const ControlPanel = ({
   const handleDelayText1Change = (value) => {
     const delayText1Value = value || 'Move to the next station';
     setGlobalTimers(prev => ({ ...prev, delayText1: delayText1Value }));
-    
+
     // Apply Delay Text 1 to all displays except index 1 (middle top)
     const updated = [...assignments];
     updated.forEach((assignment, index) => {
@@ -112,7 +112,6 @@ const ControlPanel = ({
     setAssignments(updated);
   };
 
-  // Video management functions
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -120,52 +119,62 @@ const ControlPanel = ({
     // Check if file is MP4
     if (!file.type.includes('mp4') && !file.name.toLowerCase().endsWith('.mp4')) {
       alert('❌ Only MP4 files are allowed. Please select a .mp4 video file.');
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    // Check file size (optional - you can set a limit, e.g., 500MB)
-    const maxSize = 500 * 1024 * 1024; // 500MB in bytes
+    // Check file size (e.g., 500MB limit)
+    const maxSize = 500 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('❌ File is too large. Please select a video file smaller than 500MB.');
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      alert('❌ File too large. Max size is 500MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
 
-      const response = await fetch('/api/videos/upload', {
+    try {
+      // Step 1: Get pre-signed S3 URL from API
+      const presignRes = await fetch('/api/videos/upload', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          fileType: file.type,
+        }),
+
       });
 
-      if (response.ok) {
-        // Refresh the videos list from S3
-        const videosRes = await fetch('/api/videos');
-        const videoData = await videosRes.json();
-        setVideos(videoData || []);
-        
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        
-        // Show success message
-        alert('✅ Video uploaded successfully!');
-      } else {
-        const error = await response.json();
-        console.error('Upload failed:', error);
-        alert('❌ Upload failed: ' + error.error);
+      if (!presignRes.ok) {
+        const err = await presignRes.json();
+        throw new Error(err.error || 'Failed to get S3 upload URL.');
       }
+
+      const { uploadUrl, key } = await presignRes.json();
+
+      // Step 2: Upload file to S3 using signed URL
+      const s3Upload = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+
+      if (!s3Upload.ok) {
+        throw new Error('Upload to S3 failed.');
+      }
+
+      // Step 3: Update video list (optional)
+      const videosRes = await fetch('/api/videos');
+      const videoData = await videosRes.json();
+      setVideos(videoData || []);
+
+      // Success UI
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      alert('✅ Video uploaded successfully!');
     } catch (error) {
       console.error('Upload error:', error);
       alert('❌ Upload failed: ' + error.message);
@@ -174,9 +183,10 @@ const ControlPanel = ({
     }
   };
 
+
   const handleDeleteVideo = async (videoUrl) => {
     const key = getVideoDisplayName(videoUrl);
-    
+
     setDeleting(key);
     try {
       const response = await fetch('/api/videos/delete', {
@@ -192,7 +202,7 @@ const ControlPanel = ({
         const videosRes = await fetch('/api/videos');
         const videoData = await videosRes.json();
         setVideos(videoData || []);
-        
+
         // Clear any assignments using this video
         const updated = [...assignments];
         updated.forEach((assignment, index) => {
@@ -216,16 +226,16 @@ const ControlPanel = ({
 
   const handleRenameVideo = async (videoUrl, newFileName) => {
     const oldKey = getVideoDisplayName(videoUrl);
-    
+
     try {
       const response = await fetch('/api/videos/rename', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          oldKey, 
-          newKey: newFileName 
+        body: JSON.stringify({
+          oldKey,
+          newKey: newFileName
         }),
       });
 
@@ -234,7 +244,7 @@ const ControlPanel = ({
         const videosRes = await fetch('/api/videos');
         const videoData = await videosRes.json();
         setVideos(videoData || []);
-        
+
         // Update any assignments using this video
         const newVideoUrl = videoUrl.replace(oldKey, newFileName);
         const updated = [...assignments];
@@ -244,7 +254,7 @@ const ControlPanel = ({
           }
         });
         setAssignments(updated);
-        
+
         setRenaming(null);
         setNewName('');
       } else {
@@ -350,7 +360,7 @@ const ControlPanel = ({
                   {videos.map((video, index) => (
                     <div key={index} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-600/50">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      
+
                       {renaming === video ? (
                         <div className="flex-1 flex items-center gap-2">
                           <Input
