@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Play, Pause, Volume2, VolumeX, Clock, RotateCw } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Clock, RotateCw, Wifi, WifiOff } from 'lucide-react';
 import { Button } from './ui/button';
 
 // TV-Optimized Circular Timer Component for VideoPlayer
@@ -9,7 +9,7 @@ const CircularTimerOverlay = ({ timeLeft, totalTime, isActive, isPlaying, label,
   const radius = size === "sm" ? 50 : size === "lg" ? 80 : 65;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
-  
+
   // Memoized color calculation
   const getColor = () => {
     if (inDelay) return '#3B82F6'; // Blue during delay
@@ -67,17 +67,26 @@ const CircularTimerOverlay = ({ timeLeft, totalTime, isActive, isPlaying, label,
   );
 };
 
-const VideoPlayer = forwardRef(({ 
-  src, 
-  index, 
-  isFullscreen = false, 
-  globalTimer3, 
-  globalTimerActive, 
+const VideoPlayer = forwardRef(({
+  src,
+  index,
+  isFullscreen = false,
+  globalTimer3,
+  globalTimerActive,
   timer1TimeLeft,
   timer1Active,
   timer2TimeLeft,
   timer2Active,
-  onReadyToPlay = () => { } 
+  onReadyToPlay = () => { },
+  onVideoError = () => { },
+  // Enhanced props for centralized timer control
+  externalTimer = null, // { timeLeft, isActive, inDelay, delayTimeLeft, delayText }
+  onTimerExpired = null,
+  // WebSocket props
+  websocketConnected = false,
+  lastSyncCommand = null,
+  onSyncPlay = null,
+  onSyncPause = null
 }, ref) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -85,20 +94,83 @@ const VideoPlayer = forwardRef(({
   const [showControls, setShowControls] = useState(true);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [showSyncIndicator, setShowSyncIndicator] = useState(false);
 
-  const timerDuration = typeof src?.timerDuration === 'number' ? src.timerDuration : 60;
-  const delayDuration = typeof src?.delayDuration === 'number' ? src.delayDuration : 30;
-  const delayText = src?.delayText || 'Restarting Video';
-  
-  const [timeLeft, setTimeLeft] = useState(timerDuration);
-  const [expired, setExpired] = useState(false);
-  const [delaying, setDelaying] = useState(false);
-  const [delayProgress, setDelayProgress] = useState(0);
-  const timerRef = useRef(null);
+  // 🔥 REMOVED: Internal timer states - now managed externally
   const readyCallbackRef = useRef(false);
 
   // Check if this is the middle top video (Timer 2)
   const isMiddleTop = index === 1;
+
+  // Helper function to get screen ID from URL
+  const getScreenIdFromURL = () => {
+    if (typeof window !== 'undefined') {
+      const pathParts = window.location.pathname.split('/');
+      const screenIdPart = pathParts[pathParts.length - 1];
+      return screenIdPart || `screen-${index + 1}`;
+    }
+    return `screen-${index + 1}`;
+  };
+
+  // 🔥 OPTIMIZED: WebSocket sync event listeners (no timer management)
+  useEffect(() => {
+    const handleSyncPlay = (event) => {
+      const { targetScreens, timestamp } = event.detail;
+      const screenId = getScreenIdFromURL();
+      
+      if (targetScreens.includes(screenId)) {
+        console.log(`🎬 VideoPlayer ${index} responding to sync play`);
+        if (videoRef.current && videoLoaded && !videoError) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(console.error);
+          setIsPlaying(true);
+          
+          // Show sync indicator
+          setShowSyncIndicator(true);
+          setTimeout(() => setShowSyncIndicator(false), 2000);
+        }
+      }
+    };
+
+    const handleSyncPause = (event) => {
+      const { targetScreens, timestamp } = event.detail;
+      const screenId = getScreenIdFromURL();
+      
+      if (targetScreens.includes(screenId)) {
+        console.log(`⏸️ VideoPlayer ${index} responding to sync pause`);
+        if (videoRef.current) {
+          videoRef.current.pause();
+          setIsPlaying(false);
+          
+          // Show sync indicator
+          setShowSyncIndicator(true);
+          setTimeout(() => setShowSyncIndicator(false), 2000);
+        }
+      }
+    };
+
+    window.addEventListener('websocket-sync-play', handleSyncPlay);
+    window.addEventListener('websocket-sync-pause', handleSyncPause);
+
+    return () => {
+      window.removeEventListener('websocket-sync-play', handleSyncPlay);
+      window.removeEventListener('websocket-sync-pause', handleSyncPause);
+    };
+  }, [index, videoLoaded, videoError]);
+
+  // 🔥 OPTIMIZED: Handle timer expiration from external source
+  useEffect(() => {
+    if (externalTimer && externalTimer.shouldRestart && videoRef.current && videoLoaded && !videoError) {
+      console.log(`🔄 Video ${index} restarting due to external timer`);
+      videoRef.current.currentTime = 0;
+      if (isPlaying) {
+        videoRef.current.play().catch(console.error);
+      }
+      if (onTimerExpired) {
+        onTimerExpired(index, false); // false = restart completed
+      }
+    }
+  }, [externalTimer?.shouldRestart, isPlaying, videoLoaded, videoError, index]);
 
   // Optimized video loading handlers
   const handleVideoLoad = () => {
@@ -107,86 +179,27 @@ const VideoPlayer = forwardRef(({
       setVideoError(false);
       readyCallbackRef.current = true;
       onReadyToPlay(index);
+      console.log(`✅ Video ${index} loaded and ready`);
     }
   };
 
-  const handleVideoError = (e) => {
-    console.error(`Video ${index} load error:`, e);
+  const handleVideoErrorEvent = (e) => {
+    console.error(`❌ Video ${index} load error:`, e);
     setVideoError(true);
     if (!readyCallbackRef.current) {
       readyCallbackRef.current = true;
-      onReadyToPlay(index);
+      onVideoError(index);
     }
   };
 
   // Global timer effect - pauses video when global timer reaches 0
   useEffect(() => {
     if (globalTimer3 === 0 && isPlaying && videoRef.current) {
+      console.log(`⏰ Video ${index} paused due to global timer expiration`);
       videoRef.current.pause();
       setIsPlaying(false);
     }
-  }, [globalTimer3, isPlaying]);
-
-  // Optimized timer logic
-  useEffect(() => {
-    if (!isPlaying || delaying || !videoLoaded) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-          setExpired(true);
-          setDelaying(true);
-          if (videoRef.current) {
-            videoRef.current.pause();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [isPlaying, delaying, videoLoaded]);
-
-  // Optimized delay logic
-  useEffect(() => {
-    if (!delaying) return;
-
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress += 100 / (delayDuration * 10);
-      setDelayProgress(Math.min(progress, 100));
-    }, 100);
-
-    const delayTimeout = setTimeout(() => {
-      setExpired(false);
-      setDelaying(false);
-      setDelayProgress(0);
-      setTimeLeft(timerDuration);
-      if (videoRef.current && !videoError) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(console.error);
-      }
-    }, delayDuration * 1000);
-
-    return () => {
-      clearTimeout(delayTimeout);
-      clearInterval(progressInterval);
-    };
-  }, [delaying, timerDuration, delayDuration, videoError]);
+  }, [globalTimer3, isPlaying, index]);
 
   useImperativeHandle(ref, () => ({
     play: () => {
@@ -201,9 +214,13 @@ const VideoPlayer = forwardRef(({
         setIsPlaying(false);
       }
     },
-    startTimer: (seconds) => {
-      setTimeLeft(seconds);
-      setExpired(false);
+    restart: () => {
+      if (videoRef.current && videoLoaded && !videoError) {
+        videoRef.current.currentTime = 0;
+        if (isPlaying) {
+          videoRef.current.play().catch(console.error);
+        }
+      }
     },
     mute: () => {
       if (videoRef.current && src) {
@@ -218,7 +235,33 @@ const VideoPlayer = forwardRef(({
       }
     },
     isPlaying,
-    isMuted
+    isMuted,
+    isLoaded: videoLoaded,
+    hasError: videoError,
+    // WebSocket sync methods
+    syncPlay: async () => {
+      if (!videoRef.current || !videoLoaded || videoError) return;
+      try {
+        videoRef.current.currentTime = 0;
+        await videoRef.current.play();
+        setIsPlaying(true);
+        setShowSyncIndicator(true);
+        setTimeout(() => setShowSyncIndicator(false), 2000);
+      } catch (error) {
+        console.error(`❌ Sync play failed on video ${index}:`, error);
+      }
+    },
+    syncPause: async () => {
+      if (!videoRef.current) return;
+      try {
+        videoRef.current.pause();
+        setIsPlaying(false);
+        setShowSyncIndicator(true);
+        setTimeout(() => setShowSyncIndicator(false), 2000);
+      } catch (error) {
+        console.error(`❌ Sync pause failed on video ${index}:`, error);
+      }
+    }
   }));
 
   // Optimized control visibility for fullscreen
@@ -284,7 +327,7 @@ const VideoPlayer = forwardRef(({
             onCanPlayThrough={handleVideoLoad}
             onLoadedData={handleVideoLoad}
             onLoadedMetadata={handleVideoLoad}
-            onError={handleVideoError}
+            onError={handleVideoErrorEvent}
             style={{
               willChange: 'transform',
               backfaceVisibility: 'hidden',
@@ -292,30 +335,49 @@ const VideoPlayer = forwardRef(({
             }}
           />
 
-          {/* TV-Optimized Video Name Badge - Shorter */}
-          {src.name && (
-            <div className="absolute bottom-4 right-4 bg-gradient-to-r from-gray-900/90 to-gray-800/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg border border-gray-600/50"> {/* Reduced padding */}
-              <div className="text-lg font-semibold truncate max-w-48">{src.name}</div> {/* Reduced font size and added truncation */}
+          {/* WebSocket Sync Command Indicator */}
+          {showSyncIndicator && isFullscreen && (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40 bg-blue-600/90 backdrop-blur-sm rounded-lg px-6 py-4 animate-in fade-in zoom-in duration-300">
+              <div className="flex items-center gap-3 text-white">
+                {isPlaying ? (
+                  <Play className="h-8 w-8" />
+                ) : (
+                  <Pause className="h-8 w-8" />
+                )}
+                <div>
+                  <div className="font-semibold">WebSocket Sync</div>
+                  <div className="text-sm opacity-90">
+                    {isPlaying ? 'Playing All' : 'Paused All'}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Timer Display - Only Timer 2 on middle top video - TV Optimized with better positioning */}
+          {/* Video Name Badge */}
+          {src.name && (
+            <div className="absolute bottom-4 right-4 bg-gradient-to-r from-gray-900/90 to-gray-800/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg border border-gray-600/50">
+              <div className="text-lg font-semibold truncate max-w-48">{src.name}</div>
+            </div>
+          )}
+
+          {/* Timer Display - Only Timer 2 on middle top video */}
           {isFullscreen && src && isMiddleTop && timer2TimeLeft !== undefined && (
             <div className="absolute top-4 right-4 z-10">
-              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-2 border border-white/20"> {/* Reduced background opacity and padding */}
+              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-2 border border-white/20">
                 <CircularTimerOverlay
                   timeLeft={timer2TimeLeft}
                   totalTime={src.timerDuration || 60}
                   isActive={timer2Active}
                   isPlaying={isPlaying}
                   label="Timer 2"
-                  size="sm" // Changed to smaller size
+                  size="sm"
                 />
               </div>
             </div>
           )}
 
-          {/* TV-Optimized Global Timer Overlay - Shows when global timer is low */}
+          {/* Global Timer Warning */}
           {isFullscreen && globalTimer3 <= 30 && globalTimer3 > 0 && (
             <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-10">
               <div className="bg-gradient-to-r from-red-500/90 to-red-600/90 p-1 rounded-2xl shadow-lg animate-pulse">
@@ -329,8 +391,8 @@ const VideoPlayer = forwardRef(({
             </div>
           )}
 
-          {/* TV-Optimized Enhanced Delay Overlay */}
-          {delaying && (
+          {/* 🔥 OPTIMIZED: Delay Overlay using external timer */}
+          {externalTimer && externalTimer.inDelay && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 flex items-center justify-center">
               <div className="text-center">
                 <div className="relative mb-8">
@@ -340,19 +402,23 @@ const VideoPlayer = forwardRef(({
                   <div className="w-64 h-4 bg-gray-700 rounded-full mx-auto overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-100"
-                      style={{ width: `${delayProgress}%` }}
+                      style={{ 
+                        width: `${externalTimer.delayTimeLeft ? ((externalTimer.delayDuration - externalTimer.delayTimeLeft) / externalTimer.delayDuration) * 100 : 0}%` 
+                      }}
                     />
                   </div>
                 </div>
-                <div className="text-white text-4xl font-bold mb-4">{delayText}</div>
+                <div className="text-white text-4xl font-bold mb-4">
+                  {externalTimer.delayText || 'Restarting...'}
+                </div>
                 <div className="text-gray-300 text-xl">
-                  Please wait {delayDuration} second{delayDuration !== 1 ? 's' : ''}...
+                  Please wait {externalTimer.delayTimeLeft || 0} second{externalTimer.delayTimeLeft !== 1 ? 's' : ''}...
                 </div>
               </div>
             </div>
           )}
 
-          {/* TV-Optimized Video Error Overlay */}
+          {/* Video Error Overlay */}
           {videoError && (
             <div className="absolute inset-0 bg-red-900/80 backdrop-blur-sm z-30 flex items-center justify-center">
               <div className="text-center">
@@ -362,7 +428,7 @@ const VideoPlayer = forwardRef(({
             </div>
           )}
 
-          {/* TV-Optimized Global Timer Expired Overlay */}
+          {/* Global Timer Expired Overlay */}
           {globalTimer3 === 0 && (
             <div className="absolute inset-0 bg-red-900/80 backdrop-blur-sm z-30 flex items-center justify-center">
               <div className="text-center">
