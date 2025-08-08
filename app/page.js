@@ -1,8 +1,9 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Monitor, Settings, Eye, Plus, Play, Pause, Check } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { Monitor, Settings, Eye, Plus, Play, Pause, Check, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 const screenIds = ['screen-1', 'screen-2', 'screen-3'];
 
@@ -11,6 +12,38 @@ export default function ScreenControlPanel() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastAction, setLastAction] = useState(null);
+  const [screenStatuses, setScreenStatuses] = useState(new Map());
+
+  // 🔥 FIXED: Use the correct WebSocket hook integration
+  const { socket, isConnected, connectedScreens, emit } = useWebSocket('control_panel');
+
+  // Listen for acknowledgments and screen status updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSyncAck = (data) => {
+      console.log('✅ Sync command acknowledged:', data);
+      setIsPlaying(data.action === 'play');
+      setIsLoading(false);
+      setLastAction(data.action);
+
+      // Clear action feedback after 2 seconds
+      setTimeout(() => setLastAction(null), 2000);
+    };
+
+    const handleScreenStatus = (data) => {
+      console.log('📊 Screen status update:', data);
+      setScreenStatuses(prev => new Map(prev.set(data.screenId, data.status)));
+    };
+
+    socket.on('sync_command_ack', handleSyncAck);
+    socket.on('screen_status_update', handleScreenStatus);
+
+    return () => {
+      socket.off('sync_command_ack', handleSyncAck);
+      socket.off('screen_status_update', handleScreenStatus);
+    };
+  }, [socket]);
 
   // Toggle screen selection
   const toggleScreenSelection = useCallback((screenId) => {
@@ -33,58 +66,68 @@ export default function ScreenControlPanel() {
   // Clear all selections
   const clearAllSelections = useCallback(() => {
     setSelectedScreens(new Set());
-  }, []);
+  });
 
-  // Synchronized play/pause function
+  // 🔥 FIXED: WebSocket-based synchronized play/pause using emit function
   const performSyncAction = useCallback(async (action) => {
     if (selectedScreens.size === 0) {
       alert('Please select at least one screen to control');
       return;
     }
 
+    if (!isConnected) {
+      alert('Not connected to WebSocket server. Please check your connection.');
+      return;
+    }
+
+    const targetScreens = Array.from(selectedScreens);
+    
+    // Log all screens for debugging
+    console.log('🎯 Target screens:', targetScreens);
+    console.log('🌐 Connected screens:', connectedScreens);
+
+    // For control panel, we can send commands to all selected screens
+    // The server will filter out disconnected ones
     setIsLoading(true);
     setLastAction(action);
-    
-    try {
-      // Send sync command to all selected screens
-      const promises = Array.from(selectedScreens).map(async (screenId) => {
-        const response = await fetch(`/api/sync/${screenId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to ${action} ${screenId}`);
-        }
-        
-        return await response.json();
-      });
 
-      // Wait for all screens to respond
-      const results = await Promise.all(promises);
-      
-      // Update state based on action
-      setIsPlaying(action === 'play');
-      
-      console.log(`Sync ${action} completed:`, results);
-      
-      // Show success feedback briefly
-      setTimeout(() => setLastAction(null), 2000);
-      
+    try {
+      if (action === 'play') {
+        console.log('🎬 Sending sync play to:', targetScreens);
+        emit('sync_play', { 
+          targetScreens: targetScreens,
+          timestamp: Date.now() 
+        });
+      } else if (action === 'pause') {
+        console.log('⏸️ Sending sync pause to:', targetScreens);
+        emit('sync_pause', { 
+          targetScreens: targetScreens,
+          timestamp: Date.now() 
+        });
+      }
+
+      // Set a timeout to clear loading state if no ack received
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 3000);
+
     } catch (error) {
-      console.error(`Sync ${action} failed:`, error);
-      alert(`Failed to ${action} selected screens. Please try again.`);
-    } finally {
+      console.error(`❌ WebSocket sync ${action} failed:`, error);
+      alert(`Failed to ${action} selected screens via WebSocket. Please try again.`);
       setIsLoading(false);
     }
-  }, [selectedScreens]);
+  }, [selectedScreens, isConnected, connectedScreens, emit]);
 
   // Sync control handlers
   const handleSyncPlay = () => performSyncAction('play');
   const handleSyncPause = () => performSyncAction('pause');
+
+  // Get screen connection status
+  const getScreenStatus = (screenId) => {
+    const isScreenConnected = connectedScreens.includes(screenId);
+    const status = screenStatuses.get(screenId);
+    return { isConnected: isScreenConnected, status: status || 'unknown' };
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8">
@@ -100,19 +143,53 @@ export default function ScreenControlPanel() {
             </h1>
           </div>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Manage and control your digital displays with synchronized multi-screen playback control
+            Real-time synchronized multi-screen playback control via WebSocket
           </p>
         </div>
+
+        {/* WebSocket Connection Status */}
+        <Card className="bg-slate-800/40 backdrop-blur-sm border-slate-700/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {isConnected ? (
+                  <>
+                    <Wifi className="h-5 w-5 text-green-400" />
+                    <span className="text-green-400 font-medium">WebSocket Connected</span>
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-5 w-5 text-red-400" />
+                    <span className="text-red-400 font-medium">WebSocket Disconnected</span>
+                    <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                  </>
+                )}
+              </div>
+
+              <div className="text-sm text-slate-400">
+                {connectedScreens.length} screen(s) online: {connectedScreens.length > 0 ? connectedScreens.join(', ') : 'None'}
+              </div>
+            </div>
+
+            {!isConnected && (
+              <div className="mt-2 flex items-center gap-2 text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                <span>Connection Error: WebSocket server not reachable. Make sure the WebSocket server is running on port 3001.</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Multi-Screen Sync Controls */}
         <Card className="bg-slate-800/40 backdrop-blur-sm border-slate-700/50">
           <CardHeader>
             <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
               <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              Multi-Screen Synchronization
+              WebSocket Multi-Screen Synchronization
             </CardTitle>
             <p className="text-sm text-slate-400">
-              Select screens and control playback simultaneously. All videos will start and stop at exactly the same time.
+              Select screens and control playback simultaneously via WebSocket. All videos will start and stop at exactly the same time.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -139,30 +216,38 @@ export default function ScreenControlPanel() {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-3 gap-3">
                 {screenIds.map((screenId) => {
                   const isSelected = selectedScreens.has(screenId);
+                  const { isConnected: screenConnected } = getScreenStatus(screenId);
+
                   return (
                     <button
                       key={screenId}
                       onClick={() => toggleScreenSelection(screenId)}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                        isSelected
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${isSelected
                           ? 'border-green-500 bg-green-500/20 text-green-300'
                           : 'border-slate-600/50 bg-slate-700/30 text-slate-300 hover:border-slate-500/70 hover:bg-slate-700/50'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3">
-                        <Monitor className="h-5 w-5" />
+                        <div className="relative">
+                          <Monitor className="h-5 w-5" />
+                          <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${screenConnected ? 'bg-green-400' : 'bg-red-400'
+                            }`}></div>
+                        </div>
                         <span className="font-medium">{screenId}</span>
                         {isSelected && <Check className="h-4 w-4 ml-auto" />}
+                      </div>
+                      <div className="text-xs mt-1 opacity-70">
+                        {screenConnected ? 'Online' : 'Offline'}
                       </div>
                     </button>
                   );
                 })}
               </div>
-              
+
               <p className="text-sm text-slate-400 text-center">
                 {selectedScreens.size === 0 ? (
                   "No screens selected"
@@ -174,16 +259,15 @@ export default function ScreenControlPanel() {
 
             {/* Synchronized Play/Pause Controls */}
             <div className="space-y-3">
-              <h3 className="text-lg font-medium text-white">Synchronized Playback</h3>
+              <h3 className="text-lg font-medium text-white">WebSocket Synchronized Playback</h3>
               <div className="flex gap-4 justify-center">
                 <Button
                   onClick={handleSyncPlay}
-                  disabled={isLoading || selectedScreens.size === 0}
-                  className={`group/btn h-20 w-32 flex flex-col items-center justify-center gap-2 ${
-                    isPlaying && lastAction === 'play'
+                  disabled={isLoading || selectedScreens.size === 0 || !isConnected}
+                  className={`group/btn h-20 w-32 flex flex-col items-center justify-center gap-2 ${isPlaying && lastAction === 'play'
                       ? 'bg-green-600 hover:bg-green-700 border-green-500'
                       : 'bg-green-500/20 hover:bg-green-500/30 border-green-500/30'
-                  } transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    } transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <Play className="h-8 w-8 text-green-300 group-hover/btn:scale-110 transition-transform" />
                   <span className="text-sm font-medium text-green-300">Play All</span>
@@ -191,29 +275,41 @@ export default function ScreenControlPanel() {
 
                 <Button
                   onClick={handleSyncPause}
-                  disabled={isLoading || selectedScreens.size === 0}
-                  className={`group/btn h-20 w-32 flex flex-col items-center justify-center gap-2 ${
-                    !isPlaying && lastAction === 'pause'
+                  disabled={isLoading || selectedScreens.size === 0 || !isConnected}
+                  className={`group/btn h-20 w-32 flex flex-col items-center justify-center gap-2 ${!isPlaying && lastAction === 'pause'
                       ? 'bg-yellow-600 hover:bg-yellow-700 border-yellow-500'
                       : 'bg-yellow-500/20 hover:bg-yellow-500/30 border-yellow-500/30'
-                  } transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    } transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <Pause className="h-8 w-8 text-yellow-300 group-hover/btn:scale-110 transition-transform" />
                   <span className="text-sm font-medium text-yellow-300">Pause All</span>
                 </Button>
               </div>
-              
+
               {isLoading && (
                 <div className="flex items-center justify-center gap-2 text-blue-300">
                   <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm">Synchronizing {lastAction} across selected screens...</span>
+                  <span className="text-sm">Synchronizing {lastAction} across selected screens via WebSocket...</span>
+                </div>
+              )}
+
+              {!isConnected && (
+                <div className="flex items-center justify-center gap-2 text-red-300">
+                  <WifiOff className="h-4 w-4" />
+                  <span className="text-sm">WebSocket disconnected - sync controls disabled</span>
                 </div>
               )}
             </div>
 
             {/* Status Display */}
             <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
-              <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="grid grid-cols-4 gap-4 text-center">
+                <div>
+                  <p className="text-slate-400 text-xs uppercase tracking-wide">Connection</p>
+                  <p className={`font-medium ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                    {isConnected ? 'Online' : 'Offline'}
+                  </p>
+                </div>
                 <div>
                   <p className="text-slate-400 text-xs uppercase tracking-wide">Status</p>
                   <p className={`font-medium ${isPlaying ? 'text-green-400' : 'text-yellow-400'}`}>
@@ -241,31 +337,37 @@ export default function ScreenControlPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {screenIds.map((screenId) => {
               const isSelected = selectedScreens.has(screenId);
+              const { isConnected: screenConnected, status } = getScreenStatus(screenId);
+
               return (
                 <Card
                   key={screenId}
-                  className={`backdrop-blur-sm transition-all duration-300 hover:shadow-xl group cursor-pointer ${
-                    isSelected 
+                  className={`backdrop-blur-sm transition-all duration-300 hover:shadow-xl group cursor-pointer ${isSelected
                       ? 'bg-green-500/10 border-green-500/50 hover:border-green-400/70 shadow-green-500/20'
                       : 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50 hover:shadow-blue-500/10'
-                  }`}
+                    }`}
                   onClick={() => toggleScreenSelection(screenId)}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
-                        <Monitor className={`h-5 w-5 ${isSelected ? 'text-green-400' : 'text-blue-400'}`} />
+                        <div className="relative">
+                          <Monitor className={`h-5 w-5 ${isSelected ? 'text-green-400' : 'text-blue-400'}`} />
+                          <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${screenConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
+                            }`}></div>
+                        </div>
                         {screenId}
                       </CardTitle>
                       <div className="flex items-center gap-2">
                         {isSelected && (
                           <Check className="w-5 h-5 text-green-400" />
                         )}
-                        <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        <div className={`w-3 h-3 rounded-full ${screenConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
+                          }`}></div>
                       </div>
                     </div>
                     <p className="text-sm text-slate-400">
-                      Status: Active • Resolution: 1920x1080 
+                      Status: {screenConnected ? 'Connected' : 'Disconnected'} • Resolution: 1920x1080
                       {isSelected && <span className="text-green-400 ml-2">• Selected for sync</span>}
                     </p>
                   </CardHeader>
@@ -317,22 +419,28 @@ export default function ScreenControlPanel() {
         {/* Usage Instructions */}
         <Card className="bg-slate-800/40 backdrop-blur-sm border-slate-700/50">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-400">Multi-Screen Synchronization Guide</h3>
+            <h3 className="text-lg font-semibold mb-4 text-blue-400">WebSocket Multi-Screen Synchronization Guide</h3>
             <div className="grid md:grid-cols-2 gap-6 text-sm text-slate-300">
               <div>
+                <h4 className="font-medium mb-2 text-white">🔌 WebSocket Connection:</h4>
+                <p className="mb-3">The control panel automatically connects to the WebSocket server. Green indicators show connected screens, red indicators show disconnected screens.</p>
+
                 <h4 className="font-medium mb-2 text-white">🎯 Screen Selection:</h4>
-                <p className="mb-3">Click on screen cards to select/deselect them for synchronized control. Selected screens show green highlighting and a checkmark.</p>
-                
+                <p className="mb-3">Click on screen cards to select/deselect them for synchronized control. Commands are sent to all selected screens regardless of connection status.</p>
+
                 <h4 className="font-medium mb-2 text-white">⏯️ Synchronized Playback:</h4>
-                <p>Use "Play All" and "Pause All" to control video playback across all selected screens simultaneously. All videos will start/stop at exactly the same moment.</p>
+                <p>Use "Play All" and "Pause All" to control video playback across all selected screens simultaneously via WebSocket. Timers will start/stop automatically.</p>
               </div>
-              
+
               <div>
-                <h4 className="font-medium mb-2 text-white">🚀 Quick Setup:</h4>
-                <p className="mb-3">Use "Select All" to quickly choose all screens, or click individual cards for custom selection.</p>
-                
+                <h4 className="font-medium mb-2 text-white">🚀 Real-time Updates:</h4>
+                <p className="mb-3">Screen connection status updates in real-time. The system sends commands to all selected screens, and the WebSocket server handles routing.</p>
+
                 <h4 className="font-medium mb-2 text-white">📺 Individual Control:</h4>
-                <p>Click "Configure Screen" or "Launch Display" to manage individual screens without affecting the sync selection.</p>
+                <p className="mb-3">Click "Configure Screen" or "Launch Display" to manage individual screens. The display opens in fullscreen mode automatically.</p>
+
+                <h4 className="font-medium mb-2 text-white">🔧 Troubleshooting:</h4>
+                <p>If WebSocket connection fails, check that the WebSocket server is running on port 3001 and refresh the page.</p>
               </div>
             </div>
           </CardContent>
@@ -340,7 +448,7 @@ export default function ScreenControlPanel() {
 
         {/* Footer */}
         <div className="text-center text-slate-500 text-sm border-t border-slate-700/50 pt-6">
-          <p>© 2025 Screen Control Center • Advanced Display Management System with Multi-Screen Synchronization</p>
+          <p>© 2025 Screen Control Center • Real-time WebSocket Multi-Screen Synchronization System</p>
         </div>
       </div>
     </main>

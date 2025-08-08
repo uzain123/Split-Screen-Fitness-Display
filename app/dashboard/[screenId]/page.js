@@ -8,7 +8,9 @@ import ControlPanel from '../../../components/ControlPanel';
 import VideoUpload from '../../../components/VideoUpload';
 import FullscreenView from '../../../components/FullscreenView';
 import GlobalControls from '../../../components/GlobalControls';
+import WebSocketIntegration from '../../../components/WebSocketIntegration';
 import { useParams } from 'next/navigation';
+import { useWebSocket } from '@/hooks/useWebSocket'; // Fixed import
 
 export default function Home() {
   const { screenId } = useParams();
@@ -18,7 +20,9 @@ export default function Home() {
   const [showControls, setShowControls] = useState(true);
   const [isAllPlaying, setIsAllPlaying] = useState(false);
   const [isAllMuted, setIsAllMuted] = useState(false);
+  const { emit } = useWebSocket(screenId);
   const videoRefs = useRef([]);
+
 
   // Global timer states
   const [globalTimers, setGlobalTimers] = useState({
@@ -32,12 +36,66 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
 
+  // Fixed WebSocket usage
+  const {
+    isConnected,
+    connectedScreens,
+    sendSyncPlay,
+    sendSyncPause,
+    socket
+  } = useWebSocket('control', {
+    screenId: `control-${screenId}`,
+    onPlayCommand: null, // Control panels don't receive commands
+    onPauseCommand: null
+  });
+  const handleSyncPlayAll = () => {
+    if (!isConnected) {
+      console.warn('WebSocket not connected');
+      return;
+    }
+
+    // Get all screen IDs that have assignments
+    const activeScreens = assignments
+      .map((assignment, index) => assignment ? `screen-${index + 1}` : null)
+      .filter(Boolean);
+
+    if (activeScreens.length === 0) {
+      console.warn('No active screens to sync');
+      return;
+    }
+
+    console.log('🎬 Syncing play for screens:', activeScreens);
+    // Use emit function from your useWebSocket hook with correct event name
+    emit('sync_play', {
+      targetScreens: activeScreens,
+      timestamp: Date.now()
+    });
+  };
+
+  const handleSyncPauseAll = () => {
+    if (!isConnected) {
+      console.warn('WebSocket not connected');
+      return;
+    }
+
+    const activeScreens = assignments
+      .map((assignment, index) => assignment ? `screen-${index + 1}` : null)
+      .filter(Boolean);
+
+    console.log('⏸️ Syncing pause for screens:', activeScreens);
+    // Use emit function from your useWebSocket hook with correct event name
+    emit('sync_pause', {
+      targetScreens: activeScreens,
+      timestamp: Date.now()
+    });
+  };
+
   // Function to fetch videos from S3 with better error handling
   const fetchVideos = async () => {
     try {
       console.log('🔄 Fetching videos from API...');
       const videosRes = await fetch('/api/videos');
-      
+
       if (!videosRes.ok) {
         console.error(`❌ API Error: ${videosRes.status} ${videosRes.statusText}`);
         setApiError(`Failed to fetch videos: ${videosRes.status} ${videosRes.statusText}`);
@@ -46,13 +104,13 @@ export default function Home() {
 
       const videoData = await videosRes.json();
       console.log('✅ API Response:', videoData);
-      
+
       // Ensure we always return an array
       if (!videoData) {
         console.warn('⚠️ API returned null/undefined, using empty array');
         return [];
       }
-      
+
       if (!Array.isArray(videoData)) {
         console.warn('⚠️ API returned non-array data:', typeof videoData, videoData);
         // If it's an object with a videos property, use that
@@ -62,7 +120,7 @@ export default function Home() {
         }
         // If it's an object with URL values, convert to array
         if (typeof videoData === 'object') {
-          const urls = Object.values(videoData).filter(item => 
+          const urls = Object.values(videoData).filter(item =>
             typeof item === 'string' && (item.startsWith('http') || item.startsWith('/'))
           );
           if (urls.length > 0) {
@@ -73,7 +131,7 @@ export default function Home() {
         console.warn('⚠️ Could not extract video URLs, returning empty array');
         return [];
       }
-      
+
       console.log(`✅ Successfully loaded ${videoData.length} videos`);
       return videoData;
     } catch (error) {
@@ -87,7 +145,7 @@ export default function Home() {
     const fetchData = async () => {
       try {
         console.log('🚀 Starting data fetch for screenId:', screenId);
-        
+
         // Fetch config and videos simultaneously
         const [configRes, videoData] = await Promise.all([
           fetch(`/api/configs/${screenId}`).catch(err => {
@@ -130,7 +188,7 @@ export default function Home() {
               delayText: item.delayText || 'Move to the next station',
             };
           });
-        
+
         setAssignments(newAssignments);
         console.log('✅ Assignments loaded:', newAssignments.filter(Boolean).length, 'active');
 
@@ -207,17 +265,17 @@ export default function Home() {
   // Handle video assignment with proper timer application
   const handleAssignVideo = (playerIndex, videoUrl) => {
     const newAssignments = [...assignments];
-    
+
     if (!videoUrl) {
       // Clear assignment
       newAssignments[playerIndex] = null;
       setAssignments(newAssignments);
       return;
     }
-    
+
     // Apply appropriate timer based on player index
     let timerDuration, delayDuration, delayText;
-    
+
     if (playerIndex === 1) {
       // Middle top - Timer 2
       timerDuration = globalTimers.timer2;
@@ -240,7 +298,7 @@ export default function Home() {
       delayDuration: delayDuration,
       delayText: delayText,
     };
-    
+
     setAssignments(newAssignments);
   };
 
@@ -274,6 +332,7 @@ export default function Home() {
   };
 
   const handlePlayPauseAll = () => {
+    // Local control (existing functionality)
     videoRefs.current.forEach(ref => {
       if (ref) {
         if (isAllPlaying) {
@@ -284,6 +343,15 @@ export default function Home() {
       }
     });
     setIsAllPlaying(!isAllPlaying);
+
+    // WebSocket sync (new functionality) - now works!
+    if (isConnected) {
+      if (isAllPlaying) {
+        handleSyncPauseAll();
+      } else {
+        handleSyncPlayAll();
+      }
+    }
   };
 
   const handleMuteUnmuteAll = () => {
@@ -298,6 +366,8 @@ export default function Home() {
     });
     setIsAllMuted(!isAllMuted);
   };
+
+
 
   // Updated random assign with proper timer application and safety checks
   const handleRandomAssign = () => {
@@ -324,7 +394,7 @@ export default function Home() {
     const newAssignments = assignments.map((currentAssignment, index) => {
       // Apply appropriate timer based on player index
       let timerDuration, delayDuration, delayText;
-      
+
       if (index === 1) {
         // Middle top - Timer 2
         timerDuration = globalTimers.timer2;
@@ -352,6 +422,19 @@ export default function Home() {
     setAssignments(newAssignments);
     console.log('✅ Random assignment completed');
   };
+    const globalControlsProps = {
+    isAllPlaying,
+    isAllMuted,
+    onPlayPauseAll: handlePlayPauseAll,
+    onMuteUnmuteAll: handleMuteUnmuteAll,
+    onRandomAssign: handleRandomAssign,
+    isFullscreen,
+    assignments,
+    globalTimer3: globalTimers.timer3,
+    websocketConnected: isConnected,
+    onSyncPlayAll: handleSyncPlayAll,  // These now work!
+    onSyncPauseAll: handleSyncPauseAll // These now work!
+  };
 
   if (isFullscreen) {
     return (
@@ -360,6 +443,7 @@ export default function Home() {
         onClose={exitFullscreen}
         globalTimer3={globalTimers.timer3} // Pass Timer 3 to fullscreen view
         globalTimers={globalTimers} // Pass all global timers
+        screenId={screenId} // Pass screenId for WebSocket identification
       />
     );
   }
@@ -390,6 +474,7 @@ export default function Home() {
           </div>
         </div>
       )}
+           
 
       {/* Header */}
       <div className="border-b border-gray-800 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-40">
@@ -400,8 +485,9 @@ export default function Home() {
               <div>
                 <h1 className="text-2xl font-bold">Multi-Video Stream Dashboard</h1>
                 <p className="text-sm text-gray-400">
-                  Professional video management for large displays 
+                  Professional video management for large displays
                   {videos.length > 0 && ` • ${videos.length} videos available`}
+                  {isConnected && ` • WebSocket Connected (${connectedScreens.length} screens)`}
                 </p>
               </div>
             </div>
@@ -425,6 +511,19 @@ export default function Home() {
           </div>
         </div>
       </div>
+{/* 
+      <WebSocketIntegration
+        assignments={assignments}
+        videoRefs={videoRefs}
+        isAllPlaying={isAllPlaying}
+        setIsAllPlaying={setIsAllPlaying}
+        isAllMuted={isAllMuted}
+        setIsAllMuted={setIsAllMuted}
+        // Pass the WebSocket functions
+        isConnected={isConnected}
+        onSyncPlay={handleSyncPlayAll}
+        onSyncPause={handleSyncPauseAll}
+      /> */}
 
       <div className="container mx-auto px-4 py-6">
         {/* Video Grid */}
@@ -433,6 +532,7 @@ export default function Home() {
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Monitor className="h-5 w-5" />
               Video Display Grid
+
             </h2>
             <GlobalControls
               isAllPlaying={isAllPlaying}
@@ -443,6 +543,9 @@ export default function Home() {
               isFullscreen={isFullscreen}
               assignments={assignments}
               globalTimer3={globalTimers.timer3}
+              websocketConnected={isConnected}
+              onSyncPlayAll={handleSyncPlayAll}
+              onSyncPauseAll={handleSyncPauseAll}
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -463,7 +566,7 @@ export default function Home() {
           <div className="space-y-6">
             <ControlPanel
               videos={videos}
-              setVideos={setVideos} // Add this line - this was missing!
+              setVideos={setVideos}
               assignments={assignments}
               onAssignVideo={handleAssignVideo}
               setAssignments={setAssignments}
@@ -510,8 +613,8 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="font-medium mb-2">⚡ Performance:</h4>
-              <p>Designed for smooth, simultaneous playback of multiple HD videos with hardware acceleration. Works out of the box with CDN-loaded content.</p>
+              <h4 className="font-medium mb-2">🔗 WebSocket Sync:</h4>
+              <p>When connected, all screens can be synchronized for perfect timing across multiple displays. Status: <strong>{isConnected ? '✅ Connected' : '❌ Disconnected'}</strong></p>
             </div>
 
           </div>
