@@ -147,39 +147,6 @@ export default function ScreenControlPanel() {
           </p>
         </div>
 
-        {/* WebSocket Connection Status */}
-        <Card className="bg-slate-800/40 backdrop-blur-sm border-slate-700/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {isConnected ? (
-                  <>
-                    <Wifi className="h-5 w-5 text-green-400" />
-                    <span className="text-green-400 font-medium">WebSocket Connected</span>
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-5 w-5 text-red-400" />
-                    <span className="text-red-400 font-medium">WebSocket Disconnected</span>
-                    <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                  </>
-                )}
-              </div>
-
-              <div className="text-sm text-slate-400">
-                {connectedScreens.length} screen(s) online: {connectedScreens.length > 0 ? connectedScreens.join(', ') : 'None'}
-              </div>
-            </div>
-
-            {!isConnected && (
-              <div className="mt-2 flex items-center gap-2 text-red-400 text-sm">
-                <AlertCircle className="h-4 w-4" />
-                <span>Connection Error: WebSocket server not reachable. Make sure the WebSocket server is running on port 3001.</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Multi-Screen Sync Controls */}
         <Card className="bg-slate-800/40 backdrop-blur-sm border-slate-700/50">

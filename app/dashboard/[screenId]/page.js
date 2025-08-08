@@ -532,7 +532,6 @@ export default function Home() {
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Monitor className="h-5 w-5" />
               Video Display Grid
-
             </h2>
             <GlobalControls
               isAllPlaying={isAllPlaying}
