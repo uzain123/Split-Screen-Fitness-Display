@@ -79,6 +79,9 @@ const VideoPlayer = forwardRef(({
   timer2Active,
   onReadyToPlay = () => { },
   onVideoError = () => { },
+  // Enhanced props for centralized timer control
+  externalTimer = null, // { timeLeft, isActive, inDelay, delayTimeLeft, delayText }
+  onTimerExpired = null,
   // WebSocket props
   websocketConnected = false,
   lastSyncCommand = null,
@@ -93,15 +96,7 @@ const VideoPlayer = forwardRef(({
   const [videoError, setVideoError] = useState(false);
   const [showSyncIndicator, setShowSyncIndicator] = useState(false);
 
-  const timerDuration = typeof src?.timerDuration === 'number' ? src.timerDuration : 60;
-  const delayDuration = typeof src?.delayDuration === 'number' ? src.delayDuration : 30;
-  const delayText = src?.delayText || 'Restarting Video';
-
-  const [timeLeft, setTimeLeft] = useState(timerDuration);
-  const [expired, setExpired] = useState(false);
-  const [delaying, setDelaying] = useState(false);
-  const [delayProgress, setDelayProgress] = useState(0);
-  const timerRef = useRef(null);
+  // 🔥 REMOVED: Internal timer states - now managed externally
   const readyCallbackRef = useRef(false);
 
   // Check if this is the middle top video (Timer 2)
@@ -109,7 +104,6 @@ const VideoPlayer = forwardRef(({
 
   // Helper function to get screen ID from URL
   const getScreenIdFromURL = () => {
-    // Extract screen ID from current URL or use a default pattern
     if (typeof window !== 'undefined') {
       const pathParts = window.location.pathname.split('/');
       const screenIdPart = pathParts[pathParts.length - 1];
@@ -118,48 +112,19 @@ const VideoPlayer = forwardRef(({
     return `screen-${index + 1}`;
   };
 
-  // 🔥 FIXED: Helper function to start the internal timer
-  const startInternalTimer = () => {
-    // Clear any existing timer
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    // Reset timer state
-    setTimeLeft(timerDuration);
-    setExpired(false);
-    setDelaying(false);
-
-    console.log(`🕐 Starting internal timer for video ${index} (${timerDuration}s)`);
-  };
-
-  // 🔥 FIXED: Helper function to stop the internal timer
-  const stopInternalTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    console.log(`⏹️ Stopped internal timer for video ${index}`);
-  };
-
-  // WebSocket sync event listeners
+  // 🔥 OPTIMIZED: WebSocket sync event listeners (no timer management)
   useEffect(() => {
     const handleSyncPlay = (event) => {
       const { targetScreens, timestamp } = event.detail;
-
-      // Check if this screen should respond to the sync command
       const screenId = getScreenIdFromURL();
+      
       if (targetScreens.includes(screenId)) {
-        console.log('🎬 VideoPlayer responding to sync play');
-        if (videoRef.current) {
-          videoRef.current.currentTime = 0; // Reset to beginning
-          videoRef.current.play();
-          setIsPlaying(true); // This will trigger the timer via useEffect
+        console.log(`🎬 VideoPlayer ${index} responding to sync play`);
+        if (videoRef.current && videoLoaded && !videoError) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(console.error);
+          setIsPlaying(true);
           
-          // 🔥 FIXED: Explicitly start the internal timer
-          startInternalTimer();
-
           // Show sync indicator
           setShowSyncIndicator(true);
           setTimeout(() => setShowSyncIndicator(false), 2000);
@@ -169,17 +134,14 @@ const VideoPlayer = forwardRef(({
 
     const handleSyncPause = (event) => {
       const { targetScreens, timestamp } = event.detail;
-
       const screenId = getScreenIdFromURL();
+      
       if (targetScreens.includes(screenId)) {
-        console.log('⏸️ VideoPlayer responding to sync pause');
+        console.log(`⏸️ VideoPlayer ${index} responding to sync pause`);
         if (videoRef.current) {
           videoRef.current.pause();
           setIsPlaying(false);
-
-          // 🔥 FIXED: Stop the internal timer when pausing via WebSocket
-          stopInternalTimer();
-
+          
           // Show sync indicator
           setShowSyncIndicator(true);
           setTimeout(() => setShowSyncIndicator(false), 2000);
@@ -194,62 +156,21 @@ const VideoPlayer = forwardRef(({
       window.removeEventListener('websocket-sync-play', handleSyncPlay);
       window.removeEventListener('websocket-sync-pause', handleSyncPause);
     };
-  }, [index, timerDuration]);
+  }, [index, videoLoaded, videoError]);
 
-  // WebSocket sync play handler
-  const handleWebSocketPlay = async () => {
-    if (!videoRef.current || !videoLoaded || videoError) return;
-
-    try {
-      // Reset video to beginning for synchronized start
-      videoRef.current.currentTime = 0;
-      await videoRef.current.play();
-      setIsPlaying(true);
-      
-      // 🔥 FIXED: Start the internal timer
-      startInternalTimer();
-      
-      setShowSyncIndicator(true);
-      setTimeout(() => setShowSyncIndicator(false), 2000);
-      console.log(`✅ Video ${index} synced play via WebSocket with timer started`);
-    } catch (error) {
-      console.error(`❌ WebSocket play failed on video ${index}:`, error);
-    }
-  };
-
-  // WebSocket sync pause handler
-  const handleWebSocketPause = async () => {
-    if (!videoRef.current) return;
-
-    try {
-      videoRef.current.pause();
-      setIsPlaying(false);
-      
-      // 🔥 FIXED: Stop the internal timer
-      stopInternalTimer();
-      
-      setShowSyncIndicator(true);
-      setTimeout(() => setShowSyncIndicator(false), 2000);
-      console.log(`✅ Video ${index} synced pause via WebSocket with timer stopped`);
-    } catch (error) {
-      console.error(`❌ WebSocket pause failed on video ${index}:`, error);
-    }
-  };
-
-  // Handle WebSocket sync commands
+  // 🔥 OPTIMIZED: Handle timer expiration from external source
   useEffect(() => {
-    if (!lastSyncCommand) return;
-
-    const handleSyncCommand = async () => {
-      if (lastSyncCommand.action === 'play') {
-        await handleWebSocketPlay();
-      } else if (lastSyncCommand.action === 'pause') {
-        await handleWebSocketPause();
+    if (externalTimer && externalTimer.shouldRestart && videoRef.current && videoLoaded && !videoError) {
+      console.log(`🔄 Video ${index} restarting due to external timer`);
+      videoRef.current.currentTime = 0;
+      if (isPlaying) {
+        videoRef.current.play().catch(console.error);
       }
-    };
-
-    handleSyncCommand();
-  }, [lastSyncCommand]);
+      if (onTimerExpired) {
+        onTimerExpired(index, false); // false = restart completed
+      }
+    }
+  }, [externalTimer?.shouldRestart, isPlaying, videoLoaded, videoError, index]);
 
   // Optimized video loading handlers
   const handleVideoLoad = () => {
@@ -258,11 +179,12 @@ const VideoPlayer = forwardRef(({
       setVideoError(false);
       readyCallbackRef.current = true;
       onReadyToPlay(index);
+      console.log(`✅ Video ${index} loaded and ready`);
     }
   };
 
   const handleVideoErrorEvent = (e) => {
-    console.error(`Video ${index} load error:`, e);
+    console.error(`❌ Video ${index} load error:`, e);
     setVideoError(true);
     if (!readyCallbackRef.current) {
       readyCallbackRef.current = true;
@@ -273,101 +195,32 @@ const VideoPlayer = forwardRef(({
   // Global timer effect - pauses video when global timer reaches 0
   useEffect(() => {
     if (globalTimer3 === 0 && isPlaying && videoRef.current) {
+      console.log(`⏰ Video ${index} paused due to global timer expiration`);
       videoRef.current.pause();
       setIsPlaying(false);
-      // 🔥 FIXED: Stop internal timer when global timer expires
-      stopInternalTimer();
     }
-  }, [globalTimer3, isPlaying]);
-
-  // 🔥 FIXED: Enhanced timer logic with better state management
-  useEffect(() => {
-    // Don't start timer if video is not playing, delaying, or not loaded
-    if (!isPlaying || delaying || !videoLoaded) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-
-    // Only start the interval if we don't already have one running
-    if (!timerRef.current) {
-      console.log(`🕐 Starting timer interval for video ${index}`);
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-            setExpired(true);
-            setDelaying(true);
-            if (videoRef.current) {
-              videoRef.current.pause();
-              setIsPlaying(false);
-            }
-            console.log(`⏰ Timer expired for video ${index}`);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [isPlaying, delaying, videoLoaded, index]);
-
-  // Optimized delay logic
-  useEffect(() => {
-    if (!delaying) return;
-
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress += 100 / (delayDuration * 10);
-      setDelayProgress(Math.min(progress, 100));
-    }, 100);
-
-    const delayTimeout = setTimeout(() => {
-      setExpired(false);
-      setDelaying(false);
-      setDelayProgress(0);
-      setTimeLeft(timerDuration);
-      if (videoRef.current && !videoError) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(console.error);
-        // Timer will start automatically via the isPlaying useEffect
-      }
-      console.log(`🔄 Video ${index} restarted after delay`);
-    }, delayDuration * 1000);
-
-    return () => {
-      clearTimeout(delayTimeout);
-      clearInterval(progressInterval);
-    };
-  }, [delaying, timerDuration, delayDuration, videoError, index]);
+  }, [globalTimer3, isPlaying, index]);
 
   useImperativeHandle(ref, () => ({
     play: () => {
       if (videoRef.current && src && globalTimer3 > 0 && videoLoaded && !videoError) {
         videoRef.current.play().catch(console.error);
         setIsPlaying(true);
-        // Timer will start via useEffect
       }
     },
     pause: () => {
       if (videoRef.current && src) {
         videoRef.current.pause();
         setIsPlaying(false);
-        // Timer will stop via useEffect
       }
     },
-    startTimer: (seconds) => {
-      setTimeLeft(seconds);
-      setExpired(false);
+    restart: () => {
+      if (videoRef.current && videoLoaded && !videoError) {
+        videoRef.current.currentTime = 0;
+        if (isPlaying) {
+          videoRef.current.play().catch(console.error);
+        }
+      }
     },
     mute: () => {
       if (videoRef.current && src) {
@@ -383,9 +236,32 @@ const VideoPlayer = forwardRef(({
     },
     isPlaying,
     isMuted,
+    isLoaded: videoLoaded,
+    hasError: videoError,
     // WebSocket sync methods
-    syncPlay: handleWebSocketPlay,
-    syncPause: handleWebSocketPause
+    syncPlay: async () => {
+      if (!videoRef.current || !videoLoaded || videoError) return;
+      try {
+        videoRef.current.currentTime = 0;
+        await videoRef.current.play();
+        setIsPlaying(true);
+        setShowSyncIndicator(true);
+        setTimeout(() => setShowSyncIndicator(false), 2000);
+      } catch (error) {
+        console.error(`❌ Sync play failed on video ${index}:`, error);
+      }
+    },
+    syncPause: async () => {
+      if (!videoRef.current) return;
+      try {
+        videoRef.current.pause();
+        setIsPlaying(false);
+        setShowSyncIndicator(true);
+        setTimeout(() => setShowSyncIndicator(false), 2000);
+      } catch (error) {
+        console.error(`❌ Sync pause failed on video ${index}:`, error);
+      }
+    }
   }));
 
   // Optimized control visibility for fullscreen
@@ -427,8 +303,9 @@ const VideoPlayer = forwardRef(({
 
   return (
     <div
-      className={`relative bg-gray-900 overflow-hidden border border-gray-700 transition-all shadow-lg ${isFullscreen ? 'h-full' : 'aspect-video rounded-xl'
-        }`}
+      className={`relative bg-gray-900 overflow-hidden border border-gray-700 transition-all shadow-lg ${
+        isFullscreen ? 'h-full' : 'aspect-video rounded-xl'
+      }`}
       onMouseMove={handleMouseMove}
       style={{
         willChange: 'transform',
@@ -458,13 +335,11 @@ const VideoPlayer = forwardRef(({
             }}
           />
 
-
-
           {/* WebSocket Sync Command Indicator */}
-          {(lastSyncCommand || showSyncIndicator) && isFullscreen && (
+          {showSyncIndicator && isFullscreen && (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40 bg-blue-600/90 backdrop-blur-sm rounded-lg px-6 py-4 animate-in fade-in zoom-in duration-300">
               <div className="flex items-center gap-3 text-white">
-                {(lastSyncCommand?.action === 'play' || showSyncIndicator) ? (
+                {isPlaying ? (
                   <Play className="h-8 w-8" />
                 ) : (
                   <Pause className="h-8 w-8" />
@@ -472,23 +347,21 @@ const VideoPlayer = forwardRef(({
                 <div>
                   <div className="font-semibold">WebSocket Sync</div>
                   <div className="text-sm opacity-90">
-                    {(lastSyncCommand?.action === 'play' || showSyncIndicator) ? 'Playing All' : 'Paused All'}
+                    {isPlaying ? 'Playing All' : 'Paused All'}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-
-
-          {/* TV-Optimized Video Name Badge - Shorter */}
+          {/* Video Name Badge */}
           {src.name && (
             <div className="absolute bottom-4 right-4 bg-gradient-to-r from-gray-900/90 to-gray-800/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg border border-gray-600/50">
               <div className="text-lg font-semibold truncate max-w-48">{src.name}</div>
             </div>
           )}
 
-          {/* Timer Display - Only Timer 2 on middle top video - TV Optimized with better positioning */}
+          {/* Timer Display - Only Timer 2 on middle top video */}
           {isFullscreen && src && isMiddleTop && timer2TimeLeft !== undefined && (
             <div className="absolute top-4 right-4 z-10">
               <div className="bg-black/40 backdrop-blur-sm rounded-lg p-2 border border-white/20">
@@ -504,7 +377,7 @@ const VideoPlayer = forwardRef(({
             </div>
           )}
 
-          {/* TV-Optimized Global Timer Overlay - Shows when global timer is low */}
+          {/* Global Timer Warning */}
           {isFullscreen && globalTimer3 <= 30 && globalTimer3 > 0 && (
             <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-10">
               <div className="bg-gradient-to-r from-red-500/90 to-red-600/90 p-1 rounded-2xl shadow-lg animate-pulse">
@@ -518,8 +391,8 @@ const VideoPlayer = forwardRef(({
             </div>
           )}
 
-          {/* TV-Optimized Enhanced Delay Overlay */}
-          {delaying && (
+          {/* 🔥 OPTIMIZED: Delay Overlay using external timer */}
+          {externalTimer && externalTimer.inDelay && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 flex items-center justify-center">
               <div className="text-center">
                 <div className="relative mb-8">
@@ -529,19 +402,23 @@ const VideoPlayer = forwardRef(({
                   <div className="w-64 h-4 bg-gray-700 rounded-full mx-auto overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-100"
-                      style={{ width: `${delayProgress}%` }}
+                      style={{ 
+                        width: `${externalTimer.delayTimeLeft ? ((externalTimer.delayDuration - externalTimer.delayTimeLeft) / externalTimer.delayDuration) * 100 : 0}%` 
+                      }}
                     />
                   </div>
                 </div>
-                <div className="text-white text-4xl font-bold mb-4">{delayText}</div>
+                <div className="text-white text-4xl font-bold mb-4">
+                  {externalTimer.delayText || 'Restarting...'}
+                </div>
                 <div className="text-gray-300 text-xl">
-                  Please wait {delayDuration} second{delayDuration !== 1 ? 's' : ''}...
+                  Please wait {externalTimer.delayTimeLeft || 0} second{externalTimer.delayTimeLeft !== 1 ? 's' : ''}...
                 </div>
               </div>
             </div>
           )}
 
-          {/* TV-Optimized Video Error Overlay */}
+          {/* Video Error Overlay */}
           {videoError && (
             <div className="absolute inset-0 bg-red-900/80 backdrop-blur-sm z-30 flex items-center justify-center">
               <div className="text-center">
@@ -551,7 +428,7 @@ const VideoPlayer = forwardRef(({
             </div>
           )}
 
-          {/* TV-Optimized Global Timer Expired Overlay */}
+          {/* Global Timer Expired Overlay */}
           {globalTimer3 === 0 && (
             <div className="absolute inset-0 bg-red-900/80 backdrop-blur-sm z-30 flex items-center justify-center">
               <div className="text-center">

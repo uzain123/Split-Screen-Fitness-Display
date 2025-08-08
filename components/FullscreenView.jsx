@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import VideoPlayer from './VideoPlayer';
 import GlobalControls from './GlobalControls';
 import Image from 'next/image';
-import { useWebSocket } from '@/hooks/useWebSocket'; // Add WebSocket integration
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 // TV-Optimized Circular Timer Component
 const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDelay = false, delayText = "" }) => {
@@ -70,7 +70,7 @@ const CircularTimer = ({ timeLeft, totalTime, isActive, isPlaying, label, inDela
   );
 };
 
-// Individual Video Loading Component (unchanged)
+// Individual Video Loading Component
 const VideoLoadingCard = ({ assignment, index, isLoaded, hasError }) => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStage, setLoadingStage] = useState('Connecting...');
@@ -184,20 +184,18 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
   const videoRefs = useRef([]);
   const cursorTimeoutRef = useRef();
 
-  // 🔥 WEBSOCKET INTEGRATION
+  // WebSocket integration
   const { socket, isConnected, emit } = useWebSocket(screenId);
 
-  // 🔥 FIXED: Three Timer System - Global Timer (Timer 3) state
+  // 🔥 OPTIMIZED: Centralized timer management
   const [globalTimeLeft, setGlobalTimeLeft] = useState(globalTimer3 || 2700);
   const [globalTimerActive, setGlobalTimerActive] = useState(false);
-  const globalTimerRef = useRef(null);
-
-  // 🔥 FIXED: Timer 1 state - Get values from first non-middle-top assignment
+  
+  // Timer values calculation
   const getTimer1Values = () => {
     const timer1Assignment = assignments.find((assignment, index) =>
       index !== 1 && assignment && assignment.timerDuration
     );
-
     return {
       duration: timer1Assignment?.timerDuration || globalTimers?.timer1 || 60,
       delay: timer1Assignment?.delayDuration || globalTimers?.delay1 || 30,
@@ -205,10 +203,8 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
     };
   };
 
-  // 🔥 FIXED: Timer 2 state - Get values from middle top assignment (index 1)
   const getTimer2Values = () => {
     const timer2Assignment = assignments[1];
-
     return {
       duration: timer2Assignment?.timerDuration || globalTimers?.timer2 || 60,
       delay: 0,
@@ -219,63 +215,86 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
   const timer1Values = getTimer1Values();
   const timer2Values = getTimer2Values();
 
-  const [timer1TimeLeft, setTimer1TimeLeft] = useState(timer1Values.duration);
-  const [timer1Active, setTimer1Active] = useState(false);
-  const [timer1InDelay, setTimer1InDelay] = useState(false);
-  const [timer1DelayTimeLeft, setTimer1DelayTimeLeft] = useState(timer1Values.delay);
-  const timer1Ref = useRef(null);
-  const timer1DelayRef = useRef(null);
+  // 🔥 OPTIMIZED: Single timer state management
+  const [timerStates, setTimerStates] = useState({
+    global: { timeLeft: globalTimer3 || 2700, active: false },
+    timer1: { 
+      timeLeft: timer1Values.duration, 
+      active: false, 
+      inDelay: false, 
+      delayTimeLeft: timer1Values.delay,
+      shouldRestart: false
+    },
+    timer2: { timeLeft: timer2Values.duration, active: false, shouldRestart: false }
+  });
 
-  // Timer 2 state
-  const [timer2TimeLeft, setTimer2TimeLeft] = useState(timer2Values.duration);
-  const [timer2Active, setTimer2Active] = useState(false);
-  const timer2Ref = useRef(null);
+  // Timer refs for cleanup
+  const timerRefs = useRef({
+    global: null,
+    timer1: null,
+    timer1Delay: null,
+    timer2: null
+  });
 
   const allVideosReady = assignments.every((video, i) => !video || videosReady[i] || videoErrors[i]);
 
-  // 🔥 FIXED: Helper functions to start/stop all timers
+  // 🔥 OPTIMIZED: Centralized timer control
   const startAllTimers = () => {
     console.log('🕐 Starting all timers in FullscreenView');
-    setGlobalTimerActive(true);
-    setTimer1Active(true);
-    setTimer2Active(true);
+    setTimerStates(prev => ({
+      ...prev,
+      global: { ...prev.global, active: true },
+      timer1: { ...prev.timer1, active: true, inDelay: false },
+      timer2: { ...prev.timer2, active: true }
+    }));
   };
 
   const stopAllTimers = () => {
     console.log('⏹️ Stopping all timers in FullscreenView');
-    setGlobalTimerActive(false);
-    setTimer1Active(false);
-    setTimer2Active(false);
-    setTimer1InDelay(false);
+    // Clear all intervals
+    Object.keys(timerRefs.current).forEach(key => {
+      if (timerRefs.current[key]) {
+        clearInterval(timerRefs.current[key]);
+        timerRefs.current[key] = null;
+      }
+    });
+    
+    setTimerStates(prev => ({
+      ...prev,
+      global: { ...prev.global, active: false },
+      timer1: { ...prev.timer1, active: false, inDelay: false },
+      timer2: { ...prev.timer2, active: false }
+    }));
   };
 
-  // 🔥 FIXED: WebSocket sync event listeners with proper timer management
+  // 🔥 OPTIMIZED: WebSocket sync event listeners
   useEffect(() => {
     const handleSyncPlay = (event) => {
       const { targetScreens } = event.detail;
       if (targetScreens.includes(screenId)) {
         console.log('🎬 FullscreenView responding to sync play');
         
-        // Play all videos and start timers
+        // Reset and play all videos
         videoRefs.current.forEach((ref, index) => {
-          if (ref && assignments[index]) {
-            if (ref.syncPlay) {
-              // Use VideoPlayer's syncPlay method if available
-              ref.syncPlay();
-            } else {
-              // Fallback to direct video element control
-              const videoElement = ref.querySelector ? ref.querySelector('video') : ref;
-              if (videoElement && videoElement.play) {
-                videoElement.currentTime = 0;
-                videoElement.play().catch(e => console.warn('Play failed:', e));
-              }
-            }
+          if (ref && assignments[index] && ref.syncPlay) {
+            ref.syncPlay();
           }
         });
         
+        // Reset timers to initial values and start them
+        setTimerStates(prev => ({
+          global: { timeLeft: globalTimer3 || 2700, active: true },
+          timer1: { 
+            timeLeft: timer1Values.duration, 
+            active: true, 
+            inDelay: false, 
+            delayTimeLeft: timer1Values.delay,
+            shouldRestart: false
+          },
+          timer2: { timeLeft: timer2Values.duration, active: true, shouldRestart: false }
+        }));
+        
         setIsAllPlaying(true);
-        // 🔥 FIXED: Start all timers when WebSocket play is received
-        startAllTimers();
       }
     };
 
@@ -284,24 +303,14 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
       if (targetScreens.includes(screenId)) {
         console.log('⏸️ FullscreenView responding to sync pause');
         
-        // Pause all videos and stop timers
+        // Pause all videos
         videoRefs.current.forEach((ref, index) => {
-          if (ref && assignments[index]) {
-            if (ref.syncPause) {
-              // Use VideoPlayer's syncPause method if available
-              ref.syncPause();
-            } else {
-              // Fallback to direct video element control
-              const videoElement = ref.querySelector ? ref.querySelector('video') : ref;
-              if (videoElement && videoElement.pause) {
-                videoElement.pause();
-              }
-            }
+          if (ref && assignments[index] && ref.syncPause) {
+            ref.syncPause();
           }
         });
         
         setIsAllPlaying(false);
-        // 🔥 FIXED: Stop all timers when WebSocket pause is received
         stopAllTimers();
       }
     };
@@ -313,14 +322,238 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
       window.removeEventListener('websocket-sync-play', handleSyncPlay);
       window.removeEventListener('websocket-sync-pause', handleSyncPause);
     };
-  }, [screenId, assignments]);
-  
-  // Auto-start timers when entering fullscreen and videos are playing
+  }, [screenId, assignments, globalTimer3, timer1Values, timer2Values]);
+
+  // 🔥 OPTIMIZED: Global Timer Effect
   useEffect(() => {
-    if (isAllPlaying) {
-      startAllTimers();
+    if (!timerStates.global.active || !isAllPlaying) {
+      if (timerRefs.current.global) {
+        clearInterval(timerRefs.current.global);
+        timerRefs.current.global = null;
+      }
+      return;
     }
-  }, [isAllPlaying]);
+
+    timerRefs.current.global = setInterval(() => {
+      setTimerStates(prev => {
+        if (prev.global.timeLeft <= 1) {
+          // Global timer expired - stop everything
+          videoRefs.current.forEach((ref) => {
+            if (ref && ref.pause) {
+              ref.pause();
+            }
+          });
+          setIsAllPlaying(false);
+          clearInterval(timerRefs.current.global);
+          timerRefs.current.global = null;
+          console.log('⏰ Global Timer expired - stopping all playback');
+          
+          return {
+            ...prev,
+            global: { timeLeft: 0, active: false },
+            timer1: { ...prev.timer1, active: false },
+            timer2: { ...prev.timer2, active: false }
+          };
+        }
+        return {
+          ...prev,
+          global: { ...prev.global, timeLeft: prev.global.timeLeft - 1 }
+        };
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRefs.current.global) {
+        clearInterval(timerRefs.current.global);
+        timerRefs.current.global = null;
+      }
+    };
+  }, [timerStates.global.active, isAllPlaying]);
+
+  // 🔥 OPTIMIZED: Timer 1 Main Effect
+  useEffect(() => {
+    if (!timerStates.timer1.active || !isAllPlaying || timerStates.timer1.inDelay) {
+      if (timerRefs.current.timer1) {
+        clearInterval(timerRefs.current.timer1);
+        timerRefs.current.timer1 = null;
+      }
+      return;
+    }
+
+    timerRefs.current.timer1 = setInterval(() => {
+      setTimerStates(prev => {
+        if (prev.timer1.timeLeft <= 1) {
+          clearInterval(timerRefs.current.timer1);
+          timerRefs.current.timer1 = null;
+          console.log('⏰ Timer 1 expired, starting delay');
+          
+          return {
+            ...prev,
+            timer1: {
+              ...prev.timer1,
+              timeLeft: 0,
+              inDelay: true,
+              delayTimeLeft: timer1Values.delay
+            }
+          };
+        }
+        return {
+          ...prev,
+          timer1: { ...prev.timer1, timeLeft: prev.timer1.timeLeft - 1 }
+        };
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRefs.current.timer1) {
+        clearInterval(timerRefs.current.timer1);
+        timerRefs.current.timer1 = null;
+      }
+    };
+  }, [timerStates.timer1.active, isAllPlaying, timerStates.timer1.inDelay, timer1Values.delay]);
+
+  // 🔥 OPTIMIZED: Timer 1 Delay Effect
+  useEffect(() => {
+    if (!timerStates.timer1.inDelay || !isAllPlaying) {
+      if (timerRefs.current.timer1Delay) {
+        clearInterval(timerRefs.current.timer1Delay);
+        timerRefs.current.timer1Delay = null;
+      }
+      return;
+    }
+
+    timerRefs.current.timer1Delay = setInterval(() => {
+      setTimerStates(prev => {
+        if (prev.timer1.delayTimeLeft <= 1) {
+          clearInterval(timerRefs.current.timer1Delay);
+          timerRefs.current.timer1Delay = null;
+          console.log('🔄 Timer 1 delay finished, restarting videos');
+          
+          // Restart all non-middle-top videos
+          videoRefs.current.forEach((ref, index) => {
+            if (ref && assignments[index] && index !== 1 && ref.restart) {
+              ref.restart();
+            }
+          });
+          
+          return {
+            ...prev,
+            timer1: {
+              timeLeft: timer1Values.duration,
+              active: true,
+              inDelay: false,
+              delayTimeLeft: timer1Values.delay,
+              shouldRestart: true
+            }
+          };
+        }
+        return {
+          ...prev,
+          timer1: { ...prev.timer1, delayTimeLeft: prev.timer1.delayTimeLeft - 1 }
+        };
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRefs.current.timer1Delay) {
+        clearInterval(timerRefs.current.timer1Delay);
+        timerRefs.current.timer1Delay = null;
+      }
+    };
+  }, [timerStates.timer1.inDelay, isAllPlaying, timer1Values.duration, timer1Values.delay, assignments]);
+
+  // Reset shouldRestart flag after videos have restarted
+  useEffect(() => {
+    if (timerStates.timer1.shouldRestart) {
+      setTimeout(() => {
+        setTimerStates(prev => ({
+          ...prev,
+          timer1: { ...prev.timer1, shouldRestart: false }
+        }));
+      }, 100);
+    }
+  }, [timerStates.timer1.shouldRestart]);
+
+  // 🔥 OPTIMIZED: Timer 2 Effect (auto-restart for middle top)
+  useEffect(() => {
+    if (!timerStates.timer2.active || !isAllPlaying) {
+      if (timerRefs.current.timer2) {
+        clearInterval(timerRefs.current.timer2);
+        timerRefs.current.timer2 = null;
+      }
+      return;
+    }
+
+    timerRefs.current.timer2 = setInterval(() => {
+      setTimerStates(prev => {
+        if (prev.timer2.timeLeft <= 1) {
+          console.log('🔄 Timer 2 expired, restarting middle top video');
+          
+          // Restart middle top video (index 1)
+          if (videoRefs.current[1] && assignments[1] && videoRefs.current[1].restart) {
+            videoRefs.current[1].restart();
+          }
+          
+          return {
+            ...prev,
+            timer2: { 
+              timeLeft: timer2Values.duration, 
+              active: true,
+              shouldRestart: true
+            }
+          };
+        }
+        return {
+          ...prev,
+          timer2: { ...prev.timer2, timeLeft: prev.timer2.timeLeft - 1 }
+        };
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRefs.current.timer2) {
+        clearInterval(timerRefs.current.timer2);
+        timerRefs.current.timer2 = null;
+      }
+    };
+  }, [timerStates.timer2.active, isAllPlaying, timer2Values.duration, assignments]);
+
+  // Reset Timer 2 shouldRestart flag
+  useEffect(() => {
+    if (timerStates.timer2.shouldRestart) {
+      setTimeout(() => {
+        setTimerStates(prev => ({
+          ...prev,
+          timer2: { ...prev.timer2, shouldRestart: false }
+        }));
+      }, 100);
+    }
+  }, [timerStates.timer2.shouldRestart]);
+
+  // Update timers when props change
+  useEffect(() => {
+    setTimerStates(prev => ({
+      ...prev,
+      global: { ...prev.global, timeLeft: globalTimer3 || 2700 }
+    }));
+  }, [globalTimer3]);
+
+  useEffect(() => {
+    const newTimer1Values = getTimer1Values();
+    const newTimer2Values = getTimer2Values();
+    setTimerStates(prev => ({
+      ...prev,
+      timer1: { 
+        ...prev.timer1, 
+        timeLeft: prev.timer1.active ? prev.timer1.timeLeft : newTimer1Values.duration,
+        delayTimeLeft: newTimer1Values.delay
+      },
+      timer2: { 
+        ...prev.timer2, 
+        timeLeft: prev.timer2.active ? prev.timer2.timeLeft : newTimer2Values.duration 
+      }
+    }));
+  }, [assignments, globalTimers]);
 
   const handleVideoReady = (index) => {
     setVideosReady((prev) => {
@@ -337,150 +570,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
       return updated;
     });
   };
-
-  // 🔥 FIXED: Timer 1 Main Timer Logic
-  useEffect(() => {
-    if (!timer1Active || !isAllPlaying || timer1InDelay) {
-      if (timer1Ref.current) {
-        clearInterval(timer1Ref.current);
-        timer1Ref.current = null;
-      }
-      return;
-    }
-
-    timer1Ref.current = setInterval(() => {
-      setTimer1TimeLeft(prev => {
-        if (prev <= 1) {
-          setTimer1InDelay(true);
-          setTimer1DelayTimeLeft(timer1Values.delay);
-          clearInterval(timer1Ref.current);
-          timer1Ref.current = null;
-          console.log('⏰ Timer 1 expired, starting delay');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timer1Ref.current) {
-        clearInterval(timer1Ref.current);
-        timer1Ref.current = null;
-      }
-    };
-  }, [timer1Active, isAllPlaying, timer1InDelay, timer1Values.delay]);
-
-  // 🔥 FIXED: Timer 1 Delay Logic
-  useEffect(() => {
-    if (!timer1InDelay || !isAllPlaying) {
-      if (timer1DelayRef.current) {
-        clearInterval(timer1DelayRef.current);
-        timer1DelayRef.current = null;
-      }
-      return;
-    }
-
-    timer1DelayRef.current = setInterval(() => {
-      setTimer1DelayTimeLeft(prev => {
-        if (prev <= 1) {
-          setTimer1InDelay(false);
-          setTimer1TimeLeft(timer1Values.duration);
-          clearInterval(timer1DelayRef.current);
-          timer1DelayRef.current = null;
-          console.log('🔄 Timer 1 delay finished, restarting');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timer1DelayRef.current) {
-        clearInterval(timer1DelayRef.current);
-        timer1DelayRef.current = null;
-      }
-    };
-  }, [timer1InDelay, isAllPlaying, timer1Values.duration]);
-
-  // 🔥 FIXED: Timer 2 Logic (for middle top video - restarts automatically)
-  useEffect(() => {
-    if (!timer2Active || !isAllPlaying) {
-      if (timer2Ref.current) {
-        clearInterval(timer2Ref.current);
-        timer2Ref.current = null;
-      }
-      return;
-    }
-
-    timer2Ref.current = setInterval(() => {
-      setTimer2TimeLeft(prev => {
-        if (prev <= 1) {
-          setTimer2TimeLeft(timer2Values.duration);
-          console.log('🔄 Timer 2 restarted');
-          return timer2Values.duration;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timer2Ref.current) {
-        clearInterval(timer2Ref.current);
-        timer2Ref.current = null;
-      }
-    };
-  }, [timer2Active, isAllPlaying, timer2Values.duration]);
-
-  // 🔥 FIXED: Global Timer 3 logic (master timer that stops everything)
-  useEffect(() => {
-    if (!globalTimerActive || !isAllPlaying) {
-      if (globalTimerRef.current) {
-        clearInterval(globalTimerRef.current);
-        globalTimerRef.current = null;
-      }
-      return;
-    }
-
-    globalTimerRef.current = setInterval(() => {
-      setGlobalTimeLeft(prev => {
-        if (prev <= 1) {
-          // Global timer expired - stop everything
-          videoRefs.current.forEach((ref) => {
-            if (ref && ref.pause) {
-              ref.pause();
-            }
-          });
-          setIsAllPlaying(false);
-          stopAllTimers();
-          clearInterval(globalTimerRef.current);
-          globalTimerRef.current = null;
-          console.log('⏰ Global Timer 3 expired - stopping all playback');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (globalTimerRef.current) {
-        clearInterval(globalTimerRef.current);
-        globalTimerRef.current = null;
-      }
-    };
-  }, [globalTimerActive, isAllPlaying]);
-
-  // Update timers when props change
-  useEffect(() => {
-    setGlobalTimeLeft(globalTimer3 || 2700);
-  }, [globalTimer3]);
-
-  useEffect(() => {
-    const newTimer1Values = getTimer1Values();
-    const newTimer2Values = getTimer2Values();
-    setTimer1TimeLeft(newTimer1Values.duration);
-    setTimer1DelayTimeLeft(newTimer1Values.delay);
-    setTimer2TimeLeft(newTimer2Values.duration);
-  }, [assignments, globalTimers]);
 
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -515,25 +604,27 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
       if (cursorTimeoutRef.current) {
         clearTimeout(cursorTimeoutRef.current);
       }
+      // Cleanup all timers on unmount
+      stopAllTimers();
     };
   }, [onClose]);
 
-  // 🔥 FIXED: Local play/pause handler now properly manages all timers
+  // 🔥 OPTIMIZED: Local play/pause handler with proper timer management
   const handlePlayPauseAll = () => {
+    const newPlayingState = !isAllPlaying;
+    
     videoRefs.current.forEach((ref) => {
-      if (ref) {
-        if (isAllPlaying) {
-          ref.pause();
-        } else {
+      if (ref && assignments[videoRefs.current.indexOf(ref)]) {
+        if (newPlayingState) {
           ref.play();
+        } else {
+          ref.pause();
         }
       }
     });
 
-    const newPlayingState = !isAllPlaying;
     setIsAllPlaying(newPlayingState);
 
-    // 🔥 FIXED: Properly manage all timers when playing/pausing locally
     if (newPlayingState) {
       startAllTimers();
     } else {
@@ -556,9 +647,7 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden flex flex-col">
-      {/* WebSocket Status Indicator (top-right corner) */}
-
-      {/* TV-Optimized Individual Video Loading Overlay */}
+      {/* Video Loading Overlay */}
       {!allVideosReady && (
         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-sm">
           <div className="h-full flex flex-col">
@@ -609,18 +698,18 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
         </div>
       )}
 
-      {/* 🔥 FIXED: TV-Optimized Header with proper 3-timer layout */}
+      {/* Header with 3-timer layout */}
       <div className="relative h-40 bg-black border-b border-gray-800 flex items-center justify-between px-16">
         {/* Timer 1 (Left) */}
         <div className="flex-1 flex items-center pl-6">
           <div className="scale-110 transform">
             <CircularTimer
-              timeLeft={timer1InDelay ? timer1DelayTimeLeft : timer1TimeLeft}
-              totalTime={timer1InDelay ? timer1Values.delay : timer1Values.duration}
-              isActive={timer1Active}
+              timeLeft={timerStates.timer1.inDelay ? timerStates.timer1.delayTimeLeft : timerStates.timer1.timeLeft}
+              totalTime={timerStates.timer1.inDelay ? timer1Values.delay : timer1Values.duration}
+              isActive={timerStates.timer1.active}
               isPlaying={isAllPlaying}
               label="Timer 1"
-              inDelay={timer1InDelay}
+              inDelay={timerStates.timer1.inDelay}
               delayText={timer1Values.delayText}
             />
           </div>
@@ -642,9 +731,9 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
         <div className="flex-1 flex items-center justify-end gap-8 pr-6">
           <div className="scale-110 transform">
             <CircularTimer
-              timeLeft={globalTimeLeft}
+              timeLeft={timerStates.global.timeLeft}
               totalTime={globalTimer3 || 2700}
-              isActive={globalTimerActive}
+              isActive={timerStates.global.active}
               isPlaying={isAllPlaying}
               label="Global Timer"
             />
@@ -676,23 +765,31 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
               src={assignment}
               index={index}
               isFullscreen={true}
-              globalTimer3={globalTimeLeft}
-              globalTimerActive={globalTimerActive}
-              timer1TimeLeft={timer1TimeLeft}
-              timer1Active={timer1Active}
-              timer2TimeLeft={timer2TimeLeft}
-              timer2Active={timer2Active}
+              globalTimer3={timerStates.global.timeLeft}
+              globalTimerActive={timerStates.global.active}
+              timer1TimeLeft={timerStates.timer1.timeLeft}
+              timer1Active={timerStates.timer1.active}
+              timer2TimeLeft={timerStates.timer2.timeLeft}
+              timer2Active={timerStates.timer2.active}
+              // 🔥 OPTIMIZED: Pass external timer data for delay display
+              externalTimer={index !== 1 ? {
+                timeLeft: timerStates.timer1.timeLeft,
+                isActive: timerStates.timer1.active,
+                inDelay: timerStates.timer1.inDelay,
+                delayTimeLeft: timerStates.timer1.delayTimeLeft,
+                delayDuration: timer1Values.delay,
+                delayText: timer1Values.delayText,
+                shouldRestart: timerStates.timer1.shouldRestart
+              } : null}
               onReadyToPlay={() => handleVideoReady(index)}
               onVideoError={() => handleVideoError(index)}
-              // 🔥 FIXED: Pass WebSocket props to VideoPlayer
               websocketConnected={isConnected}
-              lastSyncCommand={null} // We handle sync via events, not props
             />
           </div>
         ))}
       </div>
 
-      {/* TV-Optimized Global Controls */}
+      {/* Global Controls */}
       <div className={`absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <div className="flex items-center gap-4 bg-black/80 backdrop-blur-sm px-6 py-3 rounded-full border border-gray-600/50">
           <Button
