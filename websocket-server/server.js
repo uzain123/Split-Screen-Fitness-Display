@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Configure CORS for Socket.io
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://your-nextjs-app.vercel.app"],
+    origin: ["http://localhost:3000", "https://split-screen-fitness-display.vercel.app/"],
     methods: ["GET", "POST"],
     credentials: true
   }
