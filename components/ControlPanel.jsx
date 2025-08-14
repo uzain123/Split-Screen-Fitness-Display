@@ -3,23 +3,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Button } from "./ui/button";
 import {
-  Monitor,
-  RotateCcw,
+  X,
+  Tag,
+  Info,
   Plus,
+  Check,
+  Clock,
+  Edit2,
   Minus,
   Video,
   Timer,
-  Tag,
-  Info,
-  Clock,
-  MessageSquare,
   Globe,
   Upload,
   Trash2,
-  Edit2,
-  X,
-  Check,
-  FolderOpen
+  Monitor,
+  RotateCcw,
+  FolderOpen,
+  MessageSquare
 } from "lucide-react";
 import { Input } from "./ui/input";
 
@@ -521,7 +521,7 @@ const ControlPanel = ({
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-orange-300">
                 <Timer className="w-4 h-4 text-orange-400" />
-                Timer 1 (All except middle)
+                Station Timer
               </label>
               <Input
                 type="number"
@@ -538,7 +538,7 @@ const ControlPanel = ({
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-purple-300">
                 <Timer className="w-4 h-4 text-purple-400" />
-                Timer 2 (Middle top only)
+                Middle-Top Timer
               </label>
               <Input
                 type="number"
@@ -555,7 +555,7 @@ const ControlPanel = ({
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-red-300">
                 <Globe className="w-4 h-4 text-red-400" />
-                Timer 3 (Global pause)
+                Class Timer
               </label>
               <Input
                 type="number"
@@ -572,7 +572,7 @@ const ControlPanel = ({
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-blue-300">
                 <Clock className="w-4 h-4 text-blue-400" />
-                Delay 1 (Timer 1 displays)
+                Station Timer Break
               </label>
               <Input
                 type="number"
@@ -590,7 +590,7 @@ const ControlPanel = ({
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-green-300">
                 <MessageSquare className="w-4 h-4 text-green-400" />
-                Delay Message 1
+                Station Break Message
               </label>
               <Input
                 value={globalTimers.delayText1}

@@ -1,81 +1,37 @@
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import { Play, Pause, Volume2, VolumeX, Clock, RotateCw, Wifi, WifiOff } from "lucide-react";
-import { Button } from "./ui/button";
+import { Play, Pause, Clock, RotateCw } from "lucide-react";
 
-// TV-Optimized Circular Timer Component for VideoPlayer
-const CircularTimerOverlay = ({
-  timeLeft,
-  totalTime,
-  isActive,
-  isPlaying,
-  label,
-  inDelay = false,
-  delayText = "",
-  size = "md"
-}) => {
+// Utility functions
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+const getColor = (timeLeft, inDelay) => {
+  if (inDelay) return "#3B82F6";
+  if (timeLeft <= 20) return "#EF4444";
+  return "#10B981";
+};
+
+// Timer overlay (rectangular, compact)
+const TimerOverlay = ({ timeLeft, totalTime, inDelay = false }) => {
   const percentage = (timeLeft / totalTime) * 100;
-  // Increased sizes for TV visibility
-  const radius = size === "sm" ? 50 : size === "lg" ? 80 : 65;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-  // Memoized color calculation
-  const getColor = () => {
-    if (inDelay) return "#3B82F6"; // Blue during delay
-    if (timeLeft <= 20) return "#EF4444"; // Red when < 20 seconds
-    return "#10B981"; // Green otherwise
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const svgSize = radius * 2 + 20;
-  // Larger font sizes for TV
-  const fontSize = size === "sm" ? "text-lg" : size === "lg" ? "text-3xl" : "text-xl";
-
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative" style={{ width: svgSize, height: svgSize }}>
-        <svg
-          className="transform -rotate-90"
-          viewBox={`0 0 ${svgSize} ${svgSize}`}
-          width={svgSize}
-          height={svgSize}
-        >
-          <circle
-            cx={svgSize / 2}
-            cy={svgSize / 2}
-            r={radius}
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="6"
-            fill="transparent"
+    <div
+      className="flex flex-col items-center justify-center gap-1"
+      style={{ width: "120px", minWidth: "100px", maxWidth: "140px" }}
+    >
+      <div
+        className="relative w-full h-16 rounded-lg border-2 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md shadow"
+        style={{ borderColor: getColor(timeLeft, inDelay) }}
+      >
+        <div className="absolute bottom-0 left-0 right-0 h-2 bg-white/10 rounded-b-lg overflow-hidden">
+          <div
+            className="h-full transition-all duration-300 rounded-b-lg"
+            style={{ width: `${percentage}%`, backgroundColor: getColor(timeLeft, inDelay) }}
           />
-          <circle
-            cx={svgSize / 2}
-            cy={svgSize / 2}
-            r={radius}
-            stroke={getColor()}
-            strokeWidth="6"
-            fill="transparent"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            className="transition-all duration-300"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`text-white font-mono font-bold ${fontSize}`}>
-            {formatTime(timeLeft)}
-          </span>
         </div>
-      </div>
-      <div className="text-center">
-        <div className="text-sm text-white/70 uppercase tracking-wide font-semibold">
-          {inDelay ? delayText : `${label} ${isActive && isPlaying ? "(Active)" : "(Paused)"}`}
-        </div>
+        <div className="text-white text-2xl font-mono font-bold mb-0.5">{formatTime(timeLeft)}</div>
       </div>
     </div>
   );
@@ -88,21 +44,12 @@ const VideoPlayer = forwardRef(
       index,
       isFullscreen = false,
       globalTimer3,
-      globalTimerActive,
-      timer1TimeLeft,
-      timer1Active,
       timer2TimeLeft,
       timer2Active,
       onReadyToPlay = () => {},
       onVideoError = () => {},
-      // Enhanced props for centralized timer control
-      externalTimer = null, // { timeLeft, isActive, inDelay, delayTimeLeft, delayText }
-      onTimerExpired = null,
-      // WebSocket props
-      websocketConnected = false,
-      lastSyncCommand = null,
-      onSyncPlay = null,
-      onSyncPause = null
+      externalTimer = null,
+      onTimerExpired = null
     },
     ref
   ) => {
@@ -383,17 +330,12 @@ const VideoPlayer = forwardRef(
 
             {/* Timer Display - Only Timer 2 on middle top video */}
             {isFullscreen && src && isMiddleTop && timer2TimeLeft !== undefined && (
-              <div className="absolute top-4 right-4 z-10">
-                <div className="bg-black/40 backdrop-blur-sm rounded-lg p-2 border border-white/20">
-                  <CircularTimerOverlay
-                    timeLeft={timer2TimeLeft}
-                    totalTime={src.timerDuration || 60}
-                    isActive={timer2Active}
-                    isPlaying={isPlaying}
-                    label="Timer 2"
-                    size="sm"
-                  />
-                </div>
+              <div className="absolute top-4 left-4 z-20">
+                <TimerOverlay
+                  timeLeft={timer2TimeLeft}
+                  totalTime={src.timerDuration || 60}
+                  inDelay={false}
+                />
               </div>
             )}
 

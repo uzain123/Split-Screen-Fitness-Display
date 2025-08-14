@@ -5,66 +5,56 @@ import VideoPlayer from "./VideoPlayer";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import React, { useEffect, useState, useRef } from "react";
 
-// TV-Optimized Circular Timer Component
-const CircularTimer = ({
-  timeLeft,
-  totalTime,
-  isActive,
-  isPlaying,
-  label,
-  inDelay = false,
-  delayText = ""
-}) => {
+// Timer utilities
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+const getColor = (timeLeft, inDelay) => {
+  if (inDelay) return "#3B82F6";
+  if (timeLeft <= 20) return "#EF4444";
+  return "#10B981";
+};
+
+// TV-Optimized Rectangular Timer Component
+export const RectangularTimer = ({ timeLeft, totalTime, label, inDelay = false }) => {
   const percentage = (timeLeft / totalTime) * 100;
-  const circumference = 2 * Math.PI * 60;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-  const getColor = () => {
-    if (inDelay) return "#3B82F6";
-    if (timeLeft <= 20) return "#EF4444";
-    return "#10B981";
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
   return (
-    <div className="flex items-center gap-4">
-      <div className="relative w-32 h-32">
-        <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 140 140">
-          <circle
-            cx="70"
-            cy="70"
-            r="60"
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="8"
-            fill="transparent"
+    <div className="flex items-center gap-6">
+      <div
+        className="relative w-60 h-28 rounded-2xl border-4 flex flex-col items-center justify-center bg-gradient-to-br from-black/70 via-gray-900/70 to-black/70 backdrop-blur-lg shadow-2xl"
+        style={{
+          borderColor: getColor(timeLeft, inDelay),
+          boxShadow: `0 0 15px ${getColor(timeLeft, inDelay)}40, 0 6px 24px rgba(0,0,0,0.6)`
+        }}
+      >
+        <div
+          className="absolute inset-0 rounded-2xl opacity-20 blur-sm"
+          style={{ backgroundColor: getColor(timeLeft, inDelay) }}
+        />
+        <div className="absolute bottom-0 left-0 right-0 h-3 bg-white/10 rounded-b-2xl overflow-hidden">
+          <div
+            className="h-full transition-all duration-500 rounded-b-2xl shadow-lg"
+            style={{
+              width: `${percentage}%`,
+              backgroundColor: getColor(timeLeft, inDelay),
+              boxShadow: `0 0 8px ${getColor(timeLeft, inDelay)}`
+            }}
           />
-          <circle
-            cx="70"
-            cy="70"
-            r="60"
-            stroke={getColor()}
-            strokeWidth="8"
-            fill="transparent"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            className="transition-all duration-300"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-white text-2xl font-mono font-bold">{formatTime(timeLeft)}</span>
+        </div>
+        <div
+          className="text-white text-6xl font-mono font-black mb-1 drop-shadow-lg z-10"
+          style={{ textShadow: `0 0 8px ${getColor(timeLeft, inDelay)}80` }}
+        >
+          {formatTime(timeLeft)}
         </div>
       </div>
-      <div className="flex flex-col">
-        <div className="text-white text-xl font-bold">{label}</div>
-        <div className="text-gray-300 text-lg">
-          {inDelay ? delayText : `${isActive && isPlaying ? "Active" : "Paused"}`}
-        </div>
+      <div
+        className="text-white text-2xl font-black drop-shadow-lg"
+        style={{ textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}
+      >
+        {label}
       </div>
     </div>
   );
@@ -717,59 +707,63 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
         </div>
       )}
 
-      {/* Header with 3-timer layout */}
-      <div className="relative h-40 bg-black border-b border-gray-800 flex items-center justify-between px-16">
-        {/* Timer 1 (Left) */}
-        <div className="flex-1 flex items-center pl-6">
-          <div className="scale-110 transform">
-            <CircularTimer
-              timeLeft={
-                timerStates.timer1.inDelay
-                  ? timerStates.timer1.delayTimeLeft
-                  : timerStates.timer1.timeLeft
-              }
-              totalTime={timerStates.timer1.inDelay ? timer1Values.delay : timer1Values.duration}
-              isActive={timerStates.timer1.active}
-              isPlaying={isAllPlaying}
-              label="Timer 1"
-              inDelay={timerStates.timer1.inDelay}
-              delayText={timer1Values.delayText}
-            />
+      {/* Header with 3-timer layout - Enhanced Design */}
+      <div className="relative h-36 bg-black border-b-2 border-gray-600 shadow-2xl">
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
+        <div className="relative flex items-center justify-between h-full px-6">
+          <div className="flex items-center justify-between w-full gap-6">
+            <div className="flex items-center gap-6">
+              <div className="transform hover:scale-105 transition-transform duration-200">
+                <RectangularTimer
+                  timeLeft={
+                    timerStates.timer1.inDelay
+                      ? timerStates.timer1.delayTimeLeft
+                      : timerStates.timer1.timeLeft
+                  }
+                  totalTime={
+                    timerStates.timer1.inDelay ? timer1Values.delay : timer1Values.duration
+                  }
+                  isActive={timerStates.timer1.active}
+                  isPlaying={isAllPlaying}
+                  label="Station Time"
+                  inDelay={timerStates.timer1.inDelay}
+                  delayText={timer1Values.delayText}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <Image
+                src="/logo.jpeg"
+                alt="Logo"
+                width={300}
+                height={150}
+                className="object-contain drop-shadow-2xl"
+                priority
+              />
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="transform hover:scale-105 transition-transform duration-200">
+                <RectangularTimer
+                  timeLeft={timerStates.global.timeLeft}
+                  totalTime={globalTimer3 || 2700}
+                  isActive={timerStates.global.active}
+                  isPlaying={isAllPlaying}
+                  label="Class Time"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Logo (Center) */}
-        <div className="flex-1 flex justify-center items-center px-12">
-          <Image
-            src="/logo.jpeg"
-            alt="Logo"
-            width={200}
-            height={100}
-            className="object-contain"
-            priority
-          />
-        </div>
-
-        {/* Global Timer (Right) with Close Button */}
-        <div className="flex-1 flex items-center justify-end gap-8 pr-6">
-          <div className="scale-110 transform">
-            <CircularTimer
-              timeLeft={timerStates.global.timeLeft}
-              totalTime={globalTimer3 || 2700}
-              isActive={timerStates.global.active}
-              isPlaying={isAllPlaying}
-              label="Global Timer"
-            />
-          </div>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={onClose}
-            className="h-16 w-16 p-0 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500/60 transition-all duration-200 ml-6"
-          >
-            <X className="h-8 w-8 text-red-400" />
-          </Button>
-        </div>
+        {/* Close Button - Top Right Corner */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onClose}
+          className="absolute top-2 right-2 h-10 w-10 p-0 bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 hover:border-red-400/80 transition-all duration-300 rounded-lg shadow-lg hover:shadow-red-500/25 backdrop-blur-sm z-10"
+        >
+          <X className="h-5 w-5 text-red-300 hover:text-red-100 transition-colors duration-200" />
+        </Button>
       </div>
 
       {/* Video grid */}
@@ -781,7 +775,7 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
             assignments.length / Math.ceil(Math.sqrt(assignments.length))
           )}, 1fr)`,
           display: "grid",
-          height: "calc(100% - 10rem)",
+          height: "calc(100% - 8rem)",
           minHeight: 0
         }}
       >
@@ -793,9 +787,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
               index={index}
               isFullscreen={true}
               globalTimer3={timerStates.global.timeLeft}
-              globalTimerActive={timerStates.global.active}
-              timer1TimeLeft={timerStates.timer1.timeLeft}
-              timer1Active={timerStates.timer1.active}
               timer2TimeLeft={timerStates.timer2.timeLeft}
               timer2Active={timerStates.timer2.active}
               // 🔥 OPTIMIZED: Pass external timer data for delay display
@@ -803,7 +794,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
                 index !== 1
                   ? {
                       timeLeft: timerStates.timer1.timeLeft,
-                      isActive: timerStates.timer1.active,
                       inDelay: timerStates.timer1.inDelay,
                       delayTimeLeft: timerStates.timer1.delayTimeLeft,
                       delayDuration: timer1Values.delay,
@@ -814,7 +804,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
               }
               onReadyToPlay={() => handleVideoReady(index)}
               onVideoError={() => handleVideoError(index)}
-              websocketConnected={isConnected}
             />
           </div>
         ))}
