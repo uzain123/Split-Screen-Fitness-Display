@@ -1,9 +1,27 @@
-import React, { useState, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Button } from './ui/button';
-import { Monitor, RotateCcw, Plus, Minus, Video, Timer, Tag, Info, Clock, MessageSquare, Globe, Upload, Trash2, Edit2, X, Check, FolderOpen } from 'lucide-react';
-import { Input } from './ui/input';
+import React, { useState, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Button } from "./ui/button";
+import {
+  Monitor,
+  RotateCcw,
+  Plus,
+  Minus,
+  Video,
+  Timer,
+  Tag,
+  Info,
+  Clock,
+  MessageSquare,
+  Globe,
+  Upload,
+  Trash2,
+  Edit2,
+  X,
+  Check,
+  FolderOpen
+} from "lucide-react";
+import { Input } from "./ui/input";
 
 const ControlPanel = ({
   videos,
@@ -17,7 +35,7 @@ const ControlPanel = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [renaming, setRenaming] = useState(null); // Track which video is being renamed
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [deleting, setDeleting] = useState(null); // Track which video is being deleted
   const fileInputRef = useRef(null);
 
@@ -37,29 +55,37 @@ const ControlPanel = ({
 
   const handleNameChange = (index, newName) => {
     const updated = [...assignments];
-    if (!updated[index]) updated[index] = { url: null, name: '', timerDuration: 60, delayDuration: 30, delayText: 'Restarting Video' };
+    if (!updated[index])
+      updated[index] = {
+        url: null,
+        name: "",
+        timerDuration: 60,
+        delayDuration: 30,
+        delayText: "Restarting Video"
+      };
     updated[index].name = newName;
     setAssignments(updated);
   };
 
   // Function to get display name for video
   const getVideoDisplayName = (video) => {
-    if (typeof video === 'string') {
-      return video.split('/').pop(); // Return just the filename after last slash
+    if (typeof video === "string") {
+      return video.split("/").pop(); // Return just the filename after last slash
     }
-    const videoPath = video?.name || video?.url || 'Unknown video';
-    return videoPath.split('/').pop(); // Return just the filename after last slash
+    const videoPath = video?.name || video?.url || "Unknown video";
+    return videoPath.split("/").pop(); // Return just the filename after last slash
   };
 
   // Handle global timer changes
   const handleGlobalTimer1Change = (value) => {
-    const timer1Value = parseInt(value || '60');
-    setGlobalTimers(prev => ({ ...prev, timer1: timer1Value }));
+    const timer1Value = parseInt(value || "60");
+    setGlobalTimers((prev) => ({ ...prev, timer1: timer1Value }));
 
     // Apply Timer 1 to all displays except index 1 (middle top)
     const updated = [...assignments];
     updated.forEach((assignment, index) => {
-      if (index !== 1 && assignment) { // Skip middle top (index 1)
+      if (index !== 1 && assignment) {
+        // Skip middle top (index 1)
         assignment.timerDuration = timer1Value;
       }
     });
@@ -67,8 +93,8 @@ const ControlPanel = ({
   };
 
   const handleGlobalTimer2Change = (value) => {
-    const timer2Value = parseInt(value || '60');
-    setGlobalTimers(prev => ({ ...prev, timer2: timer2Value }));
+    const timer2Value = parseInt(value || "60");
+    setGlobalTimers((prev) => ({ ...prev, timer2: timer2Value }));
 
     // Apply Timer 2 only to middle top display (index 1)
     const updated = [...assignments];
@@ -80,18 +106,19 @@ const ControlPanel = ({
   };
 
   const handleGlobalTimer3Change = (value) => {
-    const timer3Value = parseInt(value || '2700');
-    setGlobalTimers(prev => ({ ...prev, timer3: timer3Value }));
+    const timer3Value = parseInt(value || "2700");
+    setGlobalTimers((prev) => ({ ...prev, timer3: timer3Value }));
   };
 
   const handleDelay1Change = (value) => {
-    const delay1Value = parseInt(value || '30');
-    setGlobalTimers(prev => ({ ...prev, delay1: delay1Value }));
+    const delay1Value = parseInt(value || "30");
+    setGlobalTimers((prev) => ({ ...prev, delay1: delay1Value }));
 
     // Apply Delay 1 to all displays except index 1 (middle top)
     const updated = [...assignments];
     updated.forEach((assignment, index) => {
-      if (index !== 1 && assignment) { // Skip middle top (index 1)
+      if (index !== 1 && assignment) {
+        // Skip middle top (index 1)
         assignment.delayDuration = delay1Value;
       }
     });
@@ -99,13 +126,14 @@ const ControlPanel = ({
   };
 
   const handleDelayText1Change = (value) => {
-    const delayText1Value = value || 'Move to the next station';
-    setGlobalTimers(prev => ({ ...prev, delayText1: delayText1Value }));
+    const delayText1Value = value || "Move to the next station";
+    setGlobalTimers((prev) => ({ ...prev, delayText1: delayText1Value }));
 
     // Apply Delay Text 1 to all displays except index 1 (middle top)
     const updated = [...assignments];
     updated.forEach((assignment, index) => {
-      if (index !== 1 && assignment) { // Skip middle top (index 1)
+      if (index !== 1 && assignment) {
+        // Skip middle top (index 1)
         assignment.delayText = delayText1Value;
       }
     });
@@ -117,17 +145,17 @@ const ControlPanel = ({
     if (!file) return;
 
     // Check if file is MP4
-    if (!file.type.includes('mp4') && !file.name.toLowerCase().endsWith('.mp4')) {
-      alert('❌ Only MP4 files are allowed. Please select a .mp4 video file.');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!file.type.includes("mp4") && !file.name.toLowerCase().endsWith(".mp4")) {
+      alert("❌ Only MP4 files are allowed. Please select a .mp4 video file.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     // Check file size (e.g., 500MB limit)
     const maxSize = 500 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('❌ File too large. Max size is 500MB.');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      alert("❌ File too large. Max size is 500MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -135,111 +163,109 @@ const ControlPanel = ({
 
     try {
       // Step 1: Get pre-signed S3 URL from API
-      const presignRes = await fetch('/api/videos/upload', {
-        method: 'POST',
+      const presignRes = await fetch("/api/videos/upload", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           filename: file.name,
-          fileType: file.type,
-        }),
-
+          fileType: file.type
+        })
       });
 
       if (!presignRes.ok) {
         const err = await presignRes.json();
-        throw new Error(err.error || 'Failed to get S3 upload URL.');
+        throw new Error(err.error || "Failed to get S3 upload URL.");
       }
 
       const { uploadUrl, key } = await presignRes.json();
 
       // Step 2: Upload file to S3 using signed URL
       const s3Upload = await fetch(uploadUrl, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': file.type,
+          "Content-Type": file.type
         },
-        body: file,
+        body: file
       });
 
       if (!s3Upload.ok) {
-        throw new Error('Upload to S3 failed.');
+        throw new Error("Upload to S3 failed.");
       }
 
       // Step 3: Update video list (optional)
-      const videosRes = await fetch('/api/videos');
+      const videosRes = await fetch("/api/videos");
       const videoData = await videosRes.json();
       setVideos(videoData || []);
 
       // Success UI
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      alert('✅ Video uploaded successfully!');
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      alert("✅ Video uploaded successfully!");
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('❌ Upload failed: ' + error.message);
+      console.error("Upload error:", error);
+      alert("❌ Upload failed: " + error.message);
     } finally {
       setUploading(false);
     }
   };
 
-
   const handleDeleteVideo = async (videoUrl) => {
-    console.log('🟡 Starting delete for video:', videoUrl);
+    console.log("🟡 Starting delete for video:", videoUrl);
 
     // Extract the S3 key properly from the URL
     let key;
 
-    if (typeof videoUrl === 'string') {
+    if (typeof videoUrl === "string") {
       // If it's a full S3 URL, extract the key portion
-      if (videoUrl.includes('amazonaws.com') || videoUrl.includes('s3')) {
+      if (videoUrl.includes("amazonaws.com") || videoUrl.includes("s3")) {
         try {
           const url = new URL(videoUrl);
           key = decodeURIComponent(url.pathname.slice(1)); // Remove leading slash and decode
-          console.log('🟡 Extracted key from URL:', key);
+          console.log("🟡 Extracted key from URL:", key);
         } catch (err) {
-          console.error('❌ Failed to parse URL:', videoUrl);
-          alert('❌ Invalid video URL format');
+          console.error("❌ Failed to parse URL:", videoUrl);
+          alert("❌ Invalid video URL format");
           return;
         }
       } else {
         // If it's just a filename, assume it's in the videos/ folder
-        const fileName = videoUrl.split('/').pop();
+        const fileName = videoUrl.split("/").pop();
         key = `videos/${fileName}`;
-        console.log('🟡 Constructed key for filename:', key);
+        console.log("🟡 Constructed key for filename:", key);
       }
     } else {
       // Handle case where videoUrl is an object
       const fileName = getVideoDisplayName(videoUrl);
       key = `videos/${fileName}`;
-      console.log('🟡 Constructed key from object:', key);
+      console.log("🟡 Constructed key from object:", key);
     }
 
     setDeleting(videoUrl); // Set deleting to the video URL, not the key
 
     try {
-      console.log('🟡 Sending delete request with key:', key);
+      console.log("🟡 Sending delete request with key:", key);
 
-      const response = await fetch('/api/videos/delete', {
-        method: 'POST',
+      const response = await fetch("/api/videos/delete", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key })
       });
 
-      console.log('🟡 Delete response status:', response.status);
+      console.log("🟡 Delete response status:", response.status);
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Delete successful:', result);
+        console.log("✅ Delete successful:", result);
 
         // Refresh the video list
-        const videosRes = await fetch('/api/videos');
+        const videosRes = await fetch("/api/videos");
         if (videosRes.ok) {
           const videoData = await videosRes.json();
           setVideos(videoData || []);
-          console.log('✅ Video list refreshed');
+          console.log("✅ Video list refreshed");
         }
 
         // Remove video from assignments
@@ -252,27 +278,26 @@ const ControlPanel = ({
         });
         setAssignments(updated);
 
-        alert('✅ Video deleted successfully!');
+        alert("✅ Video deleted successfully!");
       } else {
         const error = await response.json();
-        console.error('❌ Delete failed with status:', response.status, error);
-        alert(`❌ Delete failed: ${error.error || 'Unknown error'}`);
+        console.error("❌ Delete failed with status:", response.status, error);
+        alert(`❌ Delete failed: ${error.error || "Unknown error"}`);
       }
     } catch (error) {
-      console.error('❌ Delete request failed:', error);
+      console.error("❌ Delete request failed:", error);
       alert(`❌ Delete failed: ${error.message}`);
     } finally {
       setDeleting(null);
     }
   };
 
-
   const extractS3KeyFromUrl = (url) => {
     try {
       const urlObj = new URL(url);
       return decodeURIComponent(urlObj.pathname.slice(1)); // removes leading slash
     } catch (err) {
-      console.error('Invalid URL:', url);
+      console.error("Invalid URL:", url);
       return null;
     }
   };
@@ -280,24 +305,24 @@ const ControlPanel = ({
   const handleRenameVideo = async (videoUrl, newFileName) => {
     const oldKey = extractS3KeyFromUrl(videoUrl);
     if (!oldKey) {
-      alert('Failed to extract S3 key from URL.');
+      alert("Failed to extract S3 key from URL.");
       return;
     }
 
     try {
-      const response = await fetch('/api/videos/rename', {
-        method: 'POST',
+      const response = await fetch("/api/videos/rename", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           oldKey,
           newKey: newFileName
-        }),
+        })
       });
 
       if (response.ok) {
-        const videosRes = await fetch('/api/videos');
+        const videosRes = await fetch("/api/videos");
         const videoData = await videosRes.json();
         setVideos(videoData || []);
 
@@ -311,18 +336,17 @@ const ControlPanel = ({
         setAssignments(updated);
 
         setRenaming(null);
-        setNewName('');
+        setNewName("");
       } else {
         const error = await response.json();
-        console.error('Rename failed:', error);
-        alert('Rename failed: ' + error.error);
+        console.error("Rename failed:", error);
+        alert("Rename failed: " + error.error);
       }
     } catch (error) {
-      console.error('Rename error:', error);
-      alert('Rename failed: ' + error.message);
+      console.error("Rename error:", error);
+      alert("Rename failed: " + error.message);
     }
   };
-
 
   const startRename = (videoUrl) => {
     setRenaming(videoUrl);
@@ -331,7 +355,7 @@ const ControlPanel = ({
 
   const cancelRename = () => {
     setRenaming(null);
-    setNewName('');
+    setNewName("");
   };
 
   const submitRename = (videoUrl) => {
@@ -359,7 +383,8 @@ const ControlPanel = ({
           <div className="flex items-center gap-2 text-blue-300">
             <Info className="w-4 h-4" />
             <span className="text-sm font-medium">
-              Global timer settings will apply to all videos. Timer 1 affects all displays except middle top, Timer 2 affects only middle top, Timer 3 is global pause timer.
+              Global timer settings will apply to all videos. Timer 1 affects all displays except
+              middle top, Timer 2 affects only middle top, Timer 3 is global pause timer.
             </span>
           </div>
         </div>
@@ -414,7 +439,10 @@ const ControlPanel = ({
                 </h4>
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {videos.map((video, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-600/50">
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-600/50"
+                    >
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
 
                       {renaming === video ? (
@@ -422,7 +450,7 @@ const ControlPanel = ({
                           <Input
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && submitRename(video)}
+                            onKeyPress={(e) => e.key === "Enter" && submitRename(video)}
                             className="flex-1 h-8 bg-slate-700/50 border-slate-500 text-slate-200 text-sm"
                             autoFocus
                           />
@@ -470,7 +498,6 @@ const ControlPanel = ({
                                 <Trash2 className="w-3 h-3" />
                               )}
                             </Button>
-
                           </div>
                         </>
                       )}
@@ -616,13 +643,16 @@ const ControlPanel = ({
 
           <div className="space-y-4">
             {assignments.map((assignment, index) => (
-              <div key={index} className="p-5 bg-gradient-to-r from-slate-800/50 to-slate-700/50 border border-slate-600 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+              <div
+                key={index}
+                className="p-5 bg-gradient-to-r from-slate-800/50 to-slate-700/50 border border-slate-600 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+              >
                 {/* Player Header */}
                 <div className="flex items-center gap-3 mb-4">
                   <div className="flex items-center gap-2 px-3 py-1 bg-slate-600 text-white rounded-lg">
                     <Monitor className="w-4 h-4" />
                     <span className="font-semibold text-sm">
-                      Player {index + 1} {index === 1 ? '(Middle Top - Timer 2)' : '(Timer 1)'}
+                      Player {index + 1} {index === 1 ? "(Middle Top - Timer 2)" : "(Timer 1)"}
                     </span>
                   </div>
                   <div className="flex-1 h-px bg-slate-600"></div>
@@ -637,18 +667,23 @@ const ControlPanel = ({
                       Video Source
                     </label>
                     <Select
-                      value={assignment?.url || 'none'}
+                      value={assignment?.url || "none"}
                       onValueChange={(value) =>
-                        onAssignVideo(index, value === 'none' ? null : value)
+                        onAssignVideo(index, value === "none" ? null : value)
                       }
                     >
                       <SelectTrigger className="bg-slate-700/50 border-slate-500 text-slate-200 focus:border-indigo-400 focus:ring-indigo-400 hover:bg-slate-700 transition-colors">
                         <SelectValue placeholder="Select video">
-                          {assignment?.url && assignment.url !== 'none' ? getVideoDisplayName(assignment.url) : 'Select video'}
+                          {assignment?.url && assignment.url !== "none"
+                            ? getVideoDisplayName(assignment.url)
+                            : "Select video"}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="bg-slate-700 border-slate-600 shadow-lg">
-                        <SelectItem value="none" className="text-slate-300 hover:bg-slate-600 focus:bg-slate-600">
+                        <SelectItem
+                          value="none"
+                          className="text-slate-300 hover:bg-slate-600 focus:bg-slate-600"
+                        >
                           No video assigned
                         </SelectItem>
                         {videos.map((video, videoIndex) => (
@@ -659,9 +694,7 @@ const ControlPanel = ({
                           >
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-sm">
-                                {getVideoDisplayName(video)}
-                              </span>
+                              <span className="text-sm">{getVideoDisplayName(video)}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -676,7 +709,7 @@ const ControlPanel = ({
                       Display Name
                     </label>
                     <Input
-                      value={assignment?.name || ''}
+                      value={assignment?.name || ""}
                       onChange={(e) => handleNameChange(index, e.target.value)}
                       placeholder="Enter custom name"
                       className="bg-slate-700/50 border-slate-500 text-slate-200 placeholder-slate-400 focus:border-green-400 focus:ring-green-400 hover:bg-slate-700 transition-colors"
@@ -690,8 +723,11 @@ const ControlPanel = ({
                     <div className="flex items-center gap-2">
                       <Timer className="w-4 h-4 text-orange-400" />
                       <span className="text-slate-300">
-                        Timer: <span className="text-orange-400 font-medium">
-                          {index === 1 ? `${globalTimers.timer2}s (Timer 2)` : `${globalTimers.timer1}s (Timer 1)`}
+                        Timer:{" "}
+                        <span className="text-orange-400 font-medium">
+                          {index === 1
+                            ? `${globalTimers.timer2}s (Timer 2)`
+                            : `${globalTimers.timer1}s (Timer 1)`}
                         </span>
                       </span>
                     </div>
@@ -700,13 +736,19 @@ const ControlPanel = ({
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-blue-400" />
                           <span className="text-slate-300">
-                            Delay: <span className="text-blue-400 font-medium">{globalTimers.delay1}s</span>
+                            Delay:{" "}
+                            <span className="text-blue-400 font-medium">
+                              {globalTimers.delay1}s
+                            </span>
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <MessageSquare className="w-4 h-4 text-green-400" />
                           <span className="text-slate-300">
-                            Message: <span className="text-green-400 font-medium">"{globalTimers.delayText1}"</span>
+                            Message:{" "}
+                            <span className="text-green-400 font-medium">
+                              "{globalTimers.delayText1}"
+                            </span>
                           </span>
                         </div>
                       </>
@@ -724,9 +766,17 @@ const ControlPanel = ({
 
                 {/* Assignment Status */}
                 <div className="mt-4 flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${assignment?.url ? 'bg-green-400' : 'bg-slate-500'}`}></div>
-                  <span className={`text-xs font-medium ${assignment?.url ? 'text-green-400' : 'text-slate-400'}`}>
-                    {assignment?.url ? 'Video assigned' : 'No video assigned'}
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      assignment?.url ? "bg-green-400" : "bg-slate-500"
+                    }`}
+                  ></div>
+                  <span
+                    className={`text-xs font-medium ${
+                      assignment?.url ? "text-green-400" : "text-slate-400"
+                    }`}
+                  >
+                    {assignment?.url ? "Video assigned" : "No video assigned"}
                   </span>
                 </div>
               </div>
