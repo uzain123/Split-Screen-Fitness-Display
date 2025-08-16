@@ -18,10 +18,25 @@ const getColor = (timeLeft, inDelay) => {
 };
 
 // TV-Optimized Rectangular Timer Component
-export const RectangularTimer = ({ timeLeft, totalTime, label, inDelay = false }) => {
+export const RectangularTimer = ({
+  timeLeft,
+  totalTime,
+  label,
+  inDelay = false,
+  invert = false
+}) => {
   const percentage = (timeLeft / totalTime) * 100;
+
   return (
-    <div className="flex items-center gap-6">
+    <div className={`flex items-center gap-6 ${invert ? "flex-row-reverse" : ""}`}>
+      <div
+        className={`text-white text-2xl font-black drop-shadow-lg ${
+          invert ? "order-1" : "order-2"
+        }`}
+        style={{ textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}
+      >
+        {label}
+      </div>
       <div
         className="relative w-60 h-28 rounded-2xl border-4 flex flex-col items-center justify-center bg-gradient-to-br from-black/70 via-gray-900/70 to-black/70 backdrop-blur-lg shadow-2xl"
         style={{
@@ -49,12 +64,6 @@ export const RectangularTimer = ({ timeLeft, totalTime, label, inDelay = false }
         >
           {formatTime(timeLeft)}
         </div>
-      </div>
-      <div
-        className="text-white text-2xl font-black drop-shadow-lg"
-        style={{ textShadow: "0 2px 8px rgba(0,0,0,0.8)" }}
-      >
-        {label}
       </div>
     </div>
   );
@@ -749,6 +758,7 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
                   isActive={timerStates.global.active}
                   isPlaying={isAllPlaying}
                   label="Class Time"
+                  invert={true}
                 />
               </div>
             </div>

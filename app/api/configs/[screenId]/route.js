@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
-import { redis } from '@/lib/kv'; // Redis client from Upstash
+import { redis } from "@/lib/kv"; // Redis client from Upstash
+import { NextResponse } from "next/server";
 
-
-export const dynamic = 'force-dynamic'; // Ensures fresh fetch per request (important for serverless)
+export const dynamic = "force-dynamic"; // Ensures fresh fetch per request (important for serverless)
 
 // Helper
 const getDefaultConfig = () => Array(6).fill(null);
 
 export async function GET(_, { params }) {
-  const screenId = params?.screenId || 'screen-1';
+  params = await params;
+  const screenId = params?.screenId || "screen-1";
   console.log(`🔍 GET: Fetching config for ${screenId}`);
 
   try {
@@ -23,12 +23,13 @@ export async function GET(_, { params }) {
     return NextResponse.json(data);
   } catch (error) {
     console.error(`❌ GET error for ${screenId}:`, error);
-    return new NextResponse('Failed to load config', { status: 500 });
+    return new NextResponse("Failed to load config", { status: 500 });
   }
 }
 
 export async function POST(request, { params }) {
-  const screenId = params?.screenId || 'screen-1';
+  params = await params;
+  const screenId = params?.screenId || "screen-1";
   console.log(`📝 POST: Saving config for ${screenId}`);
 
   try {
@@ -36,7 +37,7 @@ export async function POST(request, { params }) {
 
     if (!Array.isArray(body) || body.length !== 6) {
       console.warn(`❌ Invalid config received:`, body);
-      return NextResponse.json({ error: 'Invalid config format' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid config format" }, { status: 400 });
     }
 
     console.log(`📦 POST: Data to save:`, body);
@@ -47,6 +48,6 @@ export async function POST(request, { params }) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(`❌ POST error for ${screenId}:`, error);
-    return NextResponse.json({ error: 'Failed to save config' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save config" }, { status: 500 });
   }
 }
