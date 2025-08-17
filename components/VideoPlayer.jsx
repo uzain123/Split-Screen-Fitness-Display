@@ -3,8 +3,8 @@ import { Play, Pause, Clock, RotateCw } from "lucide-react";
 
 // Utility functions
 const formatTime = (seconds) => {
-  const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
+  const mins = Math.floor(seconds / 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 const getColor = (timeLeft, inDelay) => {

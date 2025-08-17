@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Upload, Video, Trash2 } from "lucide-react";
+import React, { useCallback, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 const VideoUpload = ({ videos, onVideosChange }) => {
   const [dragActive, setDragActive] = useState(false);

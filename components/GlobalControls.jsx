@@ -1,67 +1,63 @@
 import React from "react";
 import { Button } from "./ui/button";
-import { Play, Pause, Volume2, VolumeX, Shuffle } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX } from "lucide-react";
+
+const ControlButton = ({ onClick, isFullscreen, icon, label }) => (
+  <Button
+    variant="secondary"
+    size={isFullscreen ? "lg" : "default"}
+    onClick={onClick}
+    className={`${
+      isFullscreen ? "h-12 px-6 text-lg" : ""
+    } flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded
+       transition-all duration-200 ease-in-out
+       hover:bg-gray-200 dark:hover:bg-gray-700
+       active:scale-95`}
+  >
+    {icon}
+    {label}
+  </Button>
+);
 
 const GlobalControls = ({
-  isAllPlaying,
   isAllMuted,
+  isAllPlaying,
   onPlayPauseAll,
   onMuteUnmuteAll,
-  onRandomAssign,
   isFullscreen = false,
   assignments = []
 }) => {
   const hasVideos = assignments.some((video) => video);
 
+  if (!hasVideos) return null;
+
   return (
     <div className={`flex gap-2 ${isFullscreen ? "flex-col sm:flex-row" : ""}`}>
-      {!isFullscreen && (
-        <Button
-          variant="secondary"
-          size="default"
-          onClick={onRandomAssign}
-          className="flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded"
-        >
-          <Shuffle className="h-4 w-4" />
-          Random Assign
-        </Button>
-      )}
-
-      {hasVideos && (
-        <Button
-          variant="secondary"
-          size={isFullscreen ? "lg" : "default"}
-          onClick={onPlayPauseAll}
-          className={`${
-            isFullscreen ? "h-12 px-6" : ""
-          } flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded`}
-        >
-          {isAllPlaying ? (
+      <ControlButton
+        onClick={onPlayPauseAll}
+        isFullscreen={isFullscreen}
+        icon={
+          isAllPlaying ? (
             <Pause className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} />
           ) : (
             <Play className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} />
-          )}
-          {isAllPlaying ? "Pause All" : "Play All"}
-        </Button>
-      )}
+          )
+        }
+        label={isAllPlaying ? "Pause All" : "Play All"}
+      />
 
-      {hasVideos && (
-        <Button
-          variant="secondary"
-          size={isFullscreen ? "lg" : "default"}
-          onClick={onMuteUnmuteAll}
-          className={`${
-            isFullscreen ? "h-12 px-6" : ""
-          } flex items-center gap-2 border border-gray-500 dark:border-gray-400 rounded`}
-        >
-          {isAllMuted ? (
+      <ControlButton
+        onClick={onMuteUnmuteAll}
+        isFullscreen={isFullscreen}
+        icon={
+          isAllMuted ? (
             <VolumeX className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} />
           ) : (
             <Volume2 className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} />
-          )}
-          {isAllMuted ? "Unmute All" : "Mute All"}
-        </Button>
-      )}
+          )
+        }
+        label={isAllMuted ? "Unmute All" : "Mute All"}
+      />
     </div>
   );
 };
