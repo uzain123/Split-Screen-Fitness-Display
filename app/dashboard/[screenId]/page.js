@@ -39,6 +39,39 @@ export default function Home() {
 
   const syncDebounceRef = useRef({ lastSync: 0, debounceMs: 300 });
 
+  useEffect(() => {
+    window.debugRandomAssign = () => {
+      if (!videos.length) {
+        console.warn("⚠️ No videos available to assign.");
+        return;
+      }
+
+      const newAssignments = assignments.map((_, index) => {
+        const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+        const isMiddleTop = index === 1;
+
+        return {
+          url: randomVideo,
+          name:
+            randomVideo
+              .split("/")
+              .pop()
+              ?.replace(/\.[^/.]+$/, "") || "Unnamed",
+          timerDuration: isMiddleTop ? globalTimers.timer2 : globalTimers.timer1,
+          delayDuration: isMiddleTop ? 0 : globalTimers.delay1,
+          delayText: isMiddleTop ? "Restarting Video" : globalTimers.delayText1
+        };
+      });
+
+      setAssignments(newAssignments);
+      console.log("✅ Random assignments applied:", newAssignments);
+    };
+
+    return () => {
+      delete window.debugRandomAssign;
+    };
+  }, [videos, assignments, globalTimers]);
+
   const debounceSync = (action) => {
     const now = Date.now();
     if (now - syncDebounceRef.current.lastSync < syncDebounceRef.current.debounceMs) return false;
@@ -110,11 +143,15 @@ export default function Home() {
             if (!videoAssignment?.url) return null;
             return {
               url: videoAssignment.url,
-              name: videoAssignment.title || videoAssignment.url
-                .split("/")
-                .pop()
-                ?.replace(/\.[^/.]+$/, "") || "Unnamed",
-              timerDuration: i === 1 ? configData.globalTimers.timer2 : configData.globalTimers.timer1,
+              name:
+                videoAssignment.title ||
+                videoAssignment.url
+                  .split("/")
+                  .pop()
+                  ?.replace(/\.[^/.]+$/, "") ||
+                "Unnamed",
+              timerDuration:
+                i === 1 ? configData.globalTimers.timer2 : configData.globalTimers.timer1,
               delayDuration: i === 1 ? 0 : configData.globalTimers.delay1,
               delayText: i === 1 ? "Restarting Video" : configData.globalTimers.delayText1
             };
@@ -154,11 +191,13 @@ export default function Home() {
       try {
         // Create new config structure - save both assignments and globalTimers
         const configData = {
-          videoAssignments: assignments.map(assignment => 
-            assignment ? {
-              url: assignment.url,
-              title: assignment.name
-            } : null
+          videoAssignments: assignments.map((assignment) =>
+            assignment
+              ? {
+                  url: assignment.url,
+                  title: assignment.name
+                }
+              : null
           ),
           globalTimers: globalTimers
         };

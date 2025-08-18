@@ -1,8 +1,8 @@
 import Image from "next/image";
-import { X } from "lucide-react";
 import { Button } from "./ui/button";
 import VideoPlayer from "./VideoPlayer";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { useSearchParams } from "next/navigation";
+import { X, Dumbbell, Repeat } from "lucide-react";
 import ClassCountdownModal from "./ClassCountdownModal";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 
@@ -83,16 +83,16 @@ const VideoLoadingCard = ({ assignment, index, isLoaded, hasError }) => {
 
   useEffect(() => {
     if (isLoaded || hasError) {
-      clearInterval(progressIntervalRef.current);
       setLoadingProgress(100);
+      clearInterval(progressIntervalRef.current);
       setLoadingStage(hasError ? "Error" : "Ready");
       return;
     }
 
     const stages = [
-      { progress: 20, stage: "Connecting..." },
-      { progress: 40, stage: "Buffering..." },
-      { progress: 70, stage: "Loading metadata..." },
+      { progress: 25, stage: "Connecting..." },
+      { progress: 50, stage: "Buffering..." },
+      { progress: 75, stage: "Loading..." },
       { progress: 90, stage: "Preparing..." }
     ];
 
@@ -523,8 +523,8 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
 
   const videoRefs = useRef([]);
   const cursorTimeoutRef = useRef();
-
-  const { socket, isConnected, emit } = useWebSocket(screenId);
+  const searchParams = useSearchParams();
+  const originalScreenId = searchParams.get("from");
 
   const { timerStates, timerValues, startAllTimers, stopAllTimers, setTimerStates } =
     useTimerManagement(assignments, globalTimer3, globalTimers, isAllPlaying, videoRefs);
@@ -553,10 +553,8 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
     const newPlayingState = !isAllPlaying;
 
     if (newPlayingState && !isCountdownOpen) {
-      // If trying to play and countdown is not already open, show countdown modal
       setIsCountdownOpen(true);
     } else if (!newPlayingState) {
-      // If pausing, allow immediate pause
       videoRefs.current.forEach((ref, index) => {
         if (ref && assignments[index]) {
           ref.pause?.();
@@ -569,21 +567,43 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
   }, [isAllPlaying, isCountdownOpen, assignments, stopAllTimers]);
 
   const handleCountdownComplete = useCallback(() => {
-    // Start playing after countdown completes
     videoRefs.current.forEach((ref, index) => {
       if (ref && assignments[index]) {
         ref.play?.();
       }
     });
 
+    startAllTimers();
     setIsAllPlaying(true);
     setIsCountdownOpen(false);
-    startAllTimers();
   }, [assignments, startAllTimers]);
 
   const handleCountdownCancel = useCallback(() => {
     setIsCountdownOpen(false);
   }, []);
+
+  const handleResetAll = useCallback(() => {
+    videoRefs.current.forEach((ref) => ref?.restart?.());
+    videoRefs.current.forEach((ref) => ref?.pause?.());
+    setIsAllPlaying(false);
+    stopAllTimers();
+
+    setTimerStates({
+      global: { timeLeft: globalTimer3 || 2700, active: false },
+      timer1: {
+        active: false,
+        inDelay: false,
+        shouldRestart: false,
+        timeLeft: timerValues.timer1?.duration || 60,
+        delayTimeLeft: timerValues.timer1?.delay || 30
+      },
+      timer2: {
+        active: false,
+        shouldRestart: false,
+        timeLeft: timerValues.timer2?.duration || 60
+      }
+    });
+  }, [stopAllTimers, setIsAllPlaying, setTimerStates, globalTimer3, timerValues]);
 
   const handleMuteUnmuteAll = useCallback(() => {
     videoRefs.current.forEach((ref) => {
@@ -597,6 +617,14 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
     });
     setIsAllMuted(!isAllMuted);
   }, [isAllMuted]);
+
+  const handleWorkoutScreenToggle = useCallback(() => {
+    const onWarmupScreen = screenId === "4";
+    const targetScreenId = onWarmupScreen ? originalScreenId : "4";
+    const lastScreenId = onWarmupScreen ? "" : `&from=${screenId}`;
+
+    window.location.href = `/dashboard/${targetScreenId}?fullscreen=true${lastScreenId}`;
+  }, [screenId, originalScreenId]);
 
   useEffect(() => {
     const handleSyncPlay = (event) => {
@@ -700,7 +728,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden flex flex-col">
-      {/* Loading Overlay */}
       {!allVideosReady && (
         <LoadingOverlay
           assignments={assignments}
@@ -709,12 +736,10 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
         />
       )}
 
-      {/* Header with timers */}
       <div className="relative h-36 bg-black border-b-2 border-gray-600 shadow-2xl">
         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-        <div className="relative flex items-center justify-between h-full px-6 pr-28">
+        <div className="relative flex items-center justify-between h-full px-6 pr-16">
           <div className="flex items-center justify-between w-full gap-6">
-            {/* Timer 1 */}
             <div className="transform hover:scale-105 transition-transform duration-200">
               <RectangularTimer
                 timeLeft={
@@ -732,7 +757,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
               />
             </div>
 
-            {/* Logo */}
             <div className="flex items-center justify-center">
               <Image
                 src="/logo.jpeg"
@@ -744,7 +768,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
               />
             </div>
 
-            {/* Global Timer */}
             <div className="transform hover:scale-105 transition-transform duration-200">
               <RectangularTimer
                 timeLeft={timerStates.global.timeLeft}
@@ -756,36 +779,36 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
           </div>
         </div>
 
-        {/* Top Right Controls */}
-        <div className="absolute top-2 right-2 flex flex-col gap-4 mt-2 z-10">
-          {/* Close Button */}
+        <div className="absolute top-2 right-2 flex flex-col gap-2 mt-2 z-10">
           <Button
             variant="secondary"
             size="sm"
             onClick={onClose}
-            className="h-12 w-12 p-0 bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 hover:border-red-400/80 transition-all duration-300 rounded-lg shadow-lg hover:shadow-red-500/25 backdrop-blur-sm"
+            className="h-8 w-8 p-0 bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 hover:border-red-400/80 transition-all duration-300 rounded-lg shadow-lg hover:shadow-red-500/25 backdrop-blur-sm"
           >
             <X className="h-5 w-5 text-red-300 hover:text-red-100 transition-colors duration-200" />
           </Button>
 
-          {/* Reset Button */}
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => {
-              // This button does nothing for now
-              console.log("Reset button clicked - no action");
-            }}
-            className="h-12 w-12 p-0 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 hover:border-purple-400/80 transition-all duration-300 rounded-lg shadow-lg hover:shadow-purple-500/25 backdrop-blur-sm"
+            onClick={handleResetAll}
+            className="h-8 w-8 p-0 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 hover:border-purple-400/80 transition-all duration-300 rounded-lg shadow-lg hover:shadow-purple-500/25 backdrop-blur-sm"
           >
-            <div className="text-purple-300 hover:text-purple-100 transition-colors duration-200 text-lg">
-              ↻
-            </div>
+            <Repeat className="h-5 w-5 text-purple-300 hover:text-purple-100 transition-colors duration-200" />
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleWorkoutScreenToggle}
+            className="h-8 w-8 p-0 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 hover:border-blue-400/80 transition-all duration-300 rounded-lg shadow-lg hover:shadow-blue-500/25 backdrop-blur-sm"
+          >
+            <Dumbbell className="h-5 w-5 text-blue-300 hover:text-blue-100 transition-colors duration-200" />
           </Button>
         </div>
       </div>
 
-      {/* Video Grid */}
       <div
         className="flex-1 p-3 grid gap-2"
         style={{
@@ -824,7 +847,6 @@ const FullscreenView = ({ assignments, onClose, globalTimer3, globalTimers, scre
         ))}
       </div>
 
-      {/* Global Controls */}
       <div
         className={`absolute bottom-2 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0"
