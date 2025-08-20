@@ -14,7 +14,6 @@ const VideoUpload = ({ videos, onVideosChange }) => {
         if (file.type.startsWith("video/")) {
           const url = URL.createObjectURL(file);
           newVideos.push({ url, name: `Uploaded Video ${videos.length + newVideos.length + 1}` });
-          console.log(`Added video: ${file.name}`);
         }
       });
 

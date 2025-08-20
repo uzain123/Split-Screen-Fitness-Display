@@ -84,7 +84,6 @@ const VideoPlayer = forwardRef(
         const screenId = getScreenIdFromURL();
 
         if (targetScreens.includes(screenId)) {
-          console.log(`🎬 VideoPlayer ${index} responding to sync play`);
           if (videoRef.current && videoLoaded && !videoError) {
             videoRef.current.currentTime = 0;
             videoRef.current.play().catch(console.error);
@@ -102,7 +101,6 @@ const VideoPlayer = forwardRef(
         const screenId = getScreenIdFromURL();
 
         if (targetScreens.includes(screenId)) {
-          console.log(`⏸️ VideoPlayer ${index} responding to sync pause`);
           if (videoRef.current) {
             videoRef.current.pause();
             setIsPlaying(false);
@@ -123,7 +121,7 @@ const VideoPlayer = forwardRef(
       };
     }, [index, videoLoaded, videoError]);
 
-    // 🔥 OPTIMIZED: Handle timer expiration from external source
+    // Handle timer expiration from external source
     useEffect(() => {
       if (
         externalTimer &&
@@ -132,7 +130,6 @@ const VideoPlayer = forwardRef(
         videoLoaded &&
         !videoError
       ) {
-        console.log(`🔄 Video ${index} restarting due to external timer`);
         videoRef.current.currentTime = 0;
         if (isPlaying) {
           videoRef.current.play().catch(console.error);
@@ -146,11 +143,11 @@ const VideoPlayer = forwardRef(
     // Optimized video loading handlers
     const handleVideoLoad = () => {
       if (!readyCallbackRef.current && videoRef.current) {
-        setVideoLoaded(true);
-        setVideoError(false);
+        console.log(`✅ Video ${index} loaded and ready`);
         readyCallbackRef.current = true;
         onReadyToPlay(index);
-        console.log(`✅ Video ${index} loaded and ready`);
+        setVideoError(false);
+        setVideoLoaded(true);
       }
     };
 
@@ -339,30 +336,15 @@ const VideoPlayer = forwardRef(
               </div>
             )}
 
-            {/* Global Timer Warning */}
-            {isFullscreen && globalTimer3 <= 30 && globalTimer3 > 0 && (
-              <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-10">
-                <div className="bg-gradient-to-r from-red-500/90 to-red-600/90 p-1 rounded-2xl shadow-lg animate-pulse">
-                  <div className="bg-gray-900/90 backdrop-blur-sm rounded-xl px-8 py-4 flex items-center gap-3">
-                    <Clock className="h-8 w-8 text-red-300" />
-                    <span className="text-red-300 text-2xl font-bold">
-                      Global: {Math.floor(globalTimer3 / 60)}:
-                      {(globalTimer3 % 60).toString().padStart(2, "0")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 🔥 OPTIMIZED: Delay Overlay using external timer */}
+            {/* Delay Overlay using external timer */}
             {externalTimer && externalTimer.inDelay && (
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="relative mb-8">
-                    <div className="w-32 h-32 border-8 border-gray-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <RotateCw className="h-16 w-16 text-white animate-spin" />
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 flex items-center justify-center p-2 md:p-4">
+                <div className="text-center max-w-full w-full flex flex-col items-center justify-center h-full">
+                  <div className="relative mb-2 md:mb-4 flex flex-col items-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 border-2 sm:border-4 md:border-6 border-gray-600 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
+                      <RotateCw className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-white animate-spin" />
                     </div>
-                    <div className="w-64 h-4 bg-gray-700 rounded-full mx-auto overflow-hidden">
+                    <div className="w-32 sm:w-40 md:w-48 lg:w-56 h-1 md:h-2 bg-gray-700 rounded-full mx-auto overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-100"
                         style={{
@@ -377,12 +359,8 @@ const VideoPlayer = forwardRef(
                       />
                     </div>
                   </div>
-                  <div className="text-white text-4xl font-bold mb-4">
+                  <div className="text-white text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2 text-center px-2">
                     {externalTimer.delayText || "Restarting..."}
-                  </div>
-                  <div className="text-gray-300 text-xl">
-                    Please wait {externalTimer.delayTimeLeft || 0} second
-                    {externalTimer.delayTimeLeft !== 1 ? "s" : ""}...
                   </div>
                 </div>
               </div>
@@ -403,7 +381,7 @@ const VideoPlayer = forwardRef(
               <div className="absolute inset-0 bg-red-900/80 backdrop-blur-sm z-30 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-white text-6xl font-bold mb-4">⏰ TIME'S UP!</div>
-                  <div className="text-red-200 text-3xl">Global timer has expired</div>
+                  <div className="text-red-200 text-3xl">The class is over.</div>
                 </div>
               </div>
             )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button } from "./ui/button";
+import { Button } from "../ui/button";
 import { X, Timer } from "lucide-react";
 
 const ClassCountdownModal = ({
@@ -88,10 +88,9 @@ const ClassCountdownModal = ({
           {/* Main Timer Display */}
           <div className="relative">
             <div
-              className="w-32 h-32 mx-auto rounded-full border-8 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 shadow-inner"
+              className="w-40 h-40 mx-auto rounded-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 shadow-inner"
               style={{
-                borderColor: getTimerColor(),
-                boxShadow: `0 0 20px ${getTimerColor()}40, inset 0 2px 8px rgba(0,0,0,0.3)`
+                boxShadow: `inset 0 2px 8px rgba(0,0,0,0.3)`
               }}
             >
               <div className="text-3xl font-bold" style={{ color: getTimerColor() }}>
@@ -101,7 +100,7 @@ const ClassCountdownModal = ({
 
             {/* Progress Ring */}
             <svg
-              className="absolute inset-0 w-32 h-32 mx-auto transform -rotate-90"
+              className="absolute inset-0 w-40 h-40 mx-auto transform -rotate-90"
               viewBox="0 0 100 100"
             >
               <circle
@@ -110,7 +109,7 @@ const ClassCountdownModal = ({
                 r="45"
                 fill="none"
                 stroke="rgba(148, 163, 184, 0.2)"
-                strokeWidth="4"
+                strokeWidth="6"
               />
               <circle
                 cx="50"
@@ -118,7 +117,7 @@ const ClassCountdownModal = ({
                 r="45"
                 fill="none"
                 stroke={getTimerColor()}
-                strokeWidth="4"
+                strokeWidth="6"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 45}`}
                 strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgressPercentage() / 100)}`}

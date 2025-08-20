@@ -111,8 +111,6 @@ export const useVideoOperations = (setVideos, assignments, setAssignments) => {
   };
 
   const handleDeleteVideo = async (videoUrl) => {
-    console.log("🟡 Starting delete for video:", videoUrl);
-
     // Extract the S3 key properly from the URL
     let key;
 
@@ -121,7 +119,6 @@ export const useVideoOperations = (setVideos, assignments, setAssignments) => {
         try {
           const url = new URL(videoUrl);
           key = decodeURIComponent(url.pathname.slice(1));
-          console.log("🟡 Extracted key from URL:", key);
         } catch (err) {
           console.error("❌ Failed to parse URL:", videoUrl);
           toast({
@@ -134,19 +131,15 @@ export const useVideoOperations = (setVideos, assignments, setAssignments) => {
       } else {
         const fileName = videoUrl.split("/").pop();
         key = `videos/${fileName}`;
-        console.log("🟡 Constructed key for filename:", key);
       }
     } else {
       const fileName = getVideoDisplayName(videoUrl);
       key = `videos/${fileName}`;
-      console.log("🟡 Constructed key from object:", key);
     }
 
     setDeleting(videoUrl);
 
     try {
-      console.log("🟡 Sending delete request with key:", key);
-
       const response = await fetch("/api/videos/delete", {
         method: "POST",
         headers: {
@@ -155,18 +148,14 @@ export const useVideoOperations = (setVideos, assignments, setAssignments) => {
         body: JSON.stringify({ key })
       });
 
-      console.log("🟡 Delete response status:", response.status);
-
       if (response.ok) {
         const result = await response.json();
-        console.log("✅ Delete successful:", result);
 
         // Refresh the video list
         const videosRes = await fetch("/api/videos");
         if (videosRes.ok) {
           const videoData = await videosRes.json();
           setVideos(videoData || []);
-          console.log("✅ Video list refreshed");
         }
 
         // Remove video from assignments
@@ -174,7 +163,6 @@ export const useVideoOperations = (setVideos, assignments, setAssignments) => {
         updated.forEach((assignment, index) => {
           if (assignment && assignment.url === videoUrl) {
             updated[index] = null;
-            console.log(`✅ Removed video from assignment ${index}`);
           }
         });
         setAssignments(updated);

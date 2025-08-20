@@ -19,7 +19,6 @@ const getDefaultConfig = () => ({
 export async function GET(_, { params }) {
   params = await params;
   const screenId = params?.screenId || "screen-1";
-  console.log(`🔍 GET: Fetching config for ${screenId}`);
 
   try {
     const data = await redis.get(screenId);
@@ -29,41 +28,6 @@ export async function GET(_, { params }) {
       return NextResponse.json(getDefaultConfig());
     }
 
-    // Handle legacy format - convert old array format to new structure
-    if (Array.isArray(data)) {
-      console.log(`🔄 Converting legacy config format for ${screenId}`);
-      const legacyConfig = {
-        videoAssignments: data.map((item) =>
-          item
-            ? {
-                url: item.url,
-                title:
-                  item.name ||
-                  item.url
-                    ?.split("/")
-                    .pop()
-                    ?.replace(/\.[^/.]+$/, "") ||
-                  "Unnamed"
-              }
-            : null
-        ),
-        globalTimers: {
-          timer1: data.find((item) => item?.timerDuration)?.timerDuration || 60,
-          timer2: data[1]?.timerDuration || 60,
-          timer3: 2700, // Default warmup timer
-          timer4: 120, // Default countdown timer
-          delay1: data.find((item) => item?.delayDuration !== undefined)?.delayDuration || 30,
-          delayText1: data.find((item) => item?.delayText)?.delayText || "Move to the next station"
-        }
-      };
-
-      // Save the converted config
-      await redis.set(screenId, legacyConfig);
-      console.log(`✅ GET: Converted and saved config for ${screenId}:`, legacyConfig);
-      return NextResponse.json(legacyConfig);
-    }
-
-    console.log(`✅ GET: Config for ${screenId}:`, data);
     return NextResponse.json(data);
   } catch (error) {
     console.error(`❌ GET error for ${screenId}:`, error);
@@ -74,7 +38,6 @@ export async function GET(_, { params }) {
 export async function POST(request, { params }) {
   params = await params;
   const screenId = params?.screenId || "screen-1";
-  console.log(`📝 POST: Saving config for ${screenId}`);
 
   try {
     const body = await request.json();
@@ -106,14 +69,10 @@ export async function POST(request, { params }) {
       }
     }
 
-    console.log(`📦 POST: Data to save:`, body);
-
     await redis.set(screenId, body);
 
-    console.log(`✅ POST: Saved config for ${screenId}`);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`❌ POST error for ${screenId}:`, error);
     return NextResponse.json({ error: "Failed to save config" }, { status: 500 });
   }
 }
